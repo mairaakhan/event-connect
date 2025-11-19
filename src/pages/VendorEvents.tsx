@@ -115,20 +115,27 @@ const VendorEvents = () => {
 
               return (
                 <Card key={event.id} className="overflow-hidden">
-                  <div className="relative h-40">
-                    <img
-                      src={event.image || "/placeholder.svg"}
-                      alt={event.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <Badge
-                      variant={status.variant}
-                      className="absolute top-3 left-3"
-                    >
-                      {status.label}
-                    </Badge>
-                  </div>
-                  <CardContent className="p-4">
+                  {event.image && (
+                    <div className="relative h-40">
+                      <img
+                        src={event.image}
+                        alt={event.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <Badge
+                        variant={status.variant}
+                        className="absolute top-3 left-3"
+                      >
+                        {status.label}
+                      </Badge>
+                    </div>
+                  )}
+                  <CardContent className={event.image ? "p-4" : "p-4 pt-6"}>
+                    {!event.image && (
+                      <Badge variant={status.variant} className="mb-2">
+                        {status.label}
+                      </Badge>
+                    )}
                     <h3 className="font-bold text-lg mb-2 line-clamp-2">
                       {event.name}
                     </h3>
