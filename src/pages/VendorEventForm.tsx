@@ -112,7 +112,7 @@ const VendorEventForm = () => {
       soldTickets: 0,
       vendorId: vendor.id,
       vendorName: vendor.organizationName,
-      image: imagePreview || "/placeholder.svg",
+      image: imagePreview || "",
       status: new Date(formData.ticketsLiveFrom) > new Date() ? "scheduled" : "live",
       startDate: new Date(formData.startDate).toISOString(),
       endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
@@ -295,7 +295,7 @@ const VendorEventForm = () => {
 
               {/* Image Upload */}
               <div className="space-y-2">
-                <Label>Event Image *</Label>
+                <Label>Event Image (Optional)</Label>
                 <div className="border-2 border-dashed rounded-lg p-6 text-center">
                   {imagePreview ? (
                     <div className="relative">

@@ -47,11 +47,8 @@ const UserHome = () => {
       <section className="container py-12 md:py-20">
         <div className="text-center max-w-3xl mx-auto mb-12 animate-fade-in">
           <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
-            Discover Amazing Events
+            event.pk
           </h1>
-          <p className="text-lg text-muted-foreground">
-            Find and book tickets for the best events in Pakistan
-          </p>
         </div>
 
         {/* Filters */}

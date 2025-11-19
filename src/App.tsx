@@ -11,6 +11,7 @@ import VendorDashboard from "./pages/VendorDashboard";
 import VendorEvents from "./pages/VendorEvents";
 import VendorEventForm from "./pages/VendorEventForm";
 import VendorEventAnalytics from "./pages/VendorEventAnalytics";
+import VendorSettings from "./pages/VendorSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/vendor/events/new" element={<VendorEventForm />} />
           <Route path="/vendor/events/edit/:id" element={<VendorEventForm />} />
           <Route path="/vendor/events/analytics/:id" element={<VendorEventAnalytics />} />
+          <Route path="/vendor/settings" element={<VendorSettings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
