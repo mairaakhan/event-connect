@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { UserNavbar } from "@/components/UserNavbar";
 import { EventCard } from "@/components/EventCard";
 import { mockEvents } from "@/data/mockEvents";
+import { Event } from "@/types/event";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,9 +27,17 @@ const UserHome = () => {
   const [endDate, setEndDate] = useState<Date>();
   const [category, setCategory] = useState("all");
   const [city, setCity] = useState("all");
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+
+  // Load events from localStorage and combine with mock events
+  useEffect(() => {
+    const vendorEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
+    const combined = [...mockEvents, ...vendorEvents];
+    setAllEvents(combined);
+  }, []);
 
   const filteredEvents = useMemo(() => {
-    return mockEvents.filter((event) => {
+    return allEvents.filter((event) => {
       const eventDate = new Date(event.startDate);
       const matchesStartDate = !startDate || eventDate >= startDate;
       const matchesEndDate = !endDate || eventDate <= endDate;
@@ -37,7 +46,7 @@ const UserHome = () => {
 
       return matchesStartDate && matchesEndDate && matchesCategory && matchesCity;
     });
-  }, [startDate, endDate, category, city]);
+  }, [allEvents, startDate, endDate, category, city]);
 
   return (
     <div className="min-h-screen bg-gradient-hero">
