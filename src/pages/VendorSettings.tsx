@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Building2, User, Phone, Mail, MapPin, Lock, LogOut, Shield } from "lucide-react";
+import { Building2, User, Phone, Mail, MapPin, Lock, LogOut, Shield, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const VendorSettings = () => {
   const navigate = useNavigate();
@@ -90,6 +91,22 @@ const VendorSettings = () => {
   const handleLogoutAllDevices = () => {
     localStorage.removeItem("vendorAuth");
     toast.success("Logged out from all devices");
+    navigate("/vendor/signin");
+  };
+
+  const handleDeleteAccount = () => {
+    if (!vendor) return;
+
+    // Delete vendor events
+    const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
+    const filteredEvents = allEvents.filter((event: any) => event.vendorId !== vendor.id);
+    localStorage.setItem("vendorEvents", JSON.stringify(filteredEvents));
+
+    // Delete vendor account
+    localStorage.removeItem("vendorAuth");
+    localStorage.removeItem(`loginLogs_${vendor.id}`);
+    
+    toast.success("Account deleted successfully");
     navigate("/vendor/signin");
   };
 
@@ -285,6 +302,46 @@ const VendorSettings = () => {
                   Logout From All Devices
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Delete Account */}
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-5 w-5" />
+                Delete Vendor Account
+              </CardTitle>
+              <CardDescription>
+                Permanently delete your vendor account and all associated data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                This action cannot be undone. This will permanently delete your vendor account and all events you've created.
+              </p>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">
+                    Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete your vendor account,
+                      all your events, and remove all associated data from our system.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Yes, Delete My Account
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </CardContent>
           </Card>
         </div>
