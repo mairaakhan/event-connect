@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { mockEvents } from "@/data/mockEvents";
+import { Event } from "@/types/event";
 import { UserNavbar } from "@/components/UserNavbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,10 +25,18 @@ import { toast } from "sonner";
 const EventDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const event = mockEvents.find((e) => e.id === id);
+  const [event, setEvent] = useState<Event | null>(null);
   const [tickets, setTickets] = useState(1);
   const [showBooking, setShowBooking] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"bank-transfer" | "easypaisa">("easypaisa");
+
+  // Load event from both mock events and localStorage
+  useEffect(() => {
+    const vendorEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
+    const allEvents = [...mockEvents, ...vendorEvents];
+    const foundEvent = allEvents.find((e) => e.id === id);
+    setEvent(foundEvent || null);
+  }, [id]);
 
   if (!event) {
     return (
