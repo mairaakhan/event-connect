@@ -8,7 +8,6 @@ export const UserNavbar = () => {
 
   const navItems = [
     { label: "Home", path: "/" },
-    { label: "Explore Events", path: "/explore" },
   ];
 
   return (
