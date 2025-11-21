@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { mockEvents } from "@/data/mockEvents";
-import { Event } from "@/types/event";
+import { Event, TicketCategory } from "@/types/event";
 import { UserNavbar } from "@/components/UserNavbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ const EventDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState<Event | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<TicketCategory | null>(null);
   const [tickets, setTickets] = useState(1);
   const [showBooking, setShowBooking] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"bank-transfer" | "easypaisa">("easypaisa");
@@ -36,6 +37,11 @@ const EventDetails = () => {
     const allEvents = [...mockEvents, ...vendorEvents];
     const foundEvent = allEvents.find((e) => e.id === id);
     setEvent(foundEvent || null);
+    
+    // Auto-select first category if available
+    if (foundEvent?.ticketCategories && foundEvent.ticketCategories.length > 0) {
+      setSelectedCategory(foundEvent.ticketCategories[0]);
+    }
   }, [id]);
 
   if (!event) {
@@ -58,8 +64,14 @@ const EventDetails = () => {
     isFuture(new Date(event.flashSale.endDate)) &&
     isPast(new Date(event.flashSale.startDate));
 
+  const hasCategories = event.ticketCategories && event.ticketCategories.length > 0;
+  const currentPrice = hasCategories && selectedCategory ? selectedCategory.price : event.ticketPrice;
+  const availableTickets = hasCategories && selectedCategory 
+    ? selectedCategory.quantity - selectedCategory.sold 
+    : event.totalTickets - event.soldTickets;
+
   const calculateTotal = () => {
-    let price = event.ticketPrice * tickets;
+    let price = currentPrice * tickets;
     let discount = 0;
 
     if (hasFlashSale && event.flashSale) {
@@ -80,6 +92,10 @@ const EventDetails = () => {
   const handleContinueToBook = () => {
     if (!isLive) {
       toast.error("Tickets are not live yet!");
+      return;
+    }
+    if (hasCategories && !selectedCategory) {
+      toast.error("Please select a ticket category");
       return;
     }
     setShowBooking(true);
@@ -146,7 +162,9 @@ const EventDetails = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Starting from</p>
-                    <p className="text-3xl font-bold text-primary">Rs. {event.ticketPrice}</p>
+                    <p className="text-3xl font-bold text-primary">
+                      Rs. {hasCategories ? Math.min(...event.ticketCategories!.map(c => c.price)) : event.ticketPrice}
+                    </p>
                   </div>
                 </div>
 
@@ -234,12 +252,53 @@ const EventDetails = () => {
                 {!showBooking ? (
                   <div className="space-y-4">
                     <h3 className="text-xl font-bold">Book Tickets</h3>
+                    
+                    {/* Ticket Categories Selection */}
+                    {hasCategories && (
+                      <div className="space-y-2">
+                        <Label>Select Ticket Type</Label>
+                        <div className="space-y-2">
+                          {event.ticketCategories!.map((category) => {
+                            const available = category.quantity - category.sold;
+                            const isSoldOut = available <= 0;
+                            
+                            return (
+                              <Card 
+                                key={category.id}
+                                className={`cursor-pointer transition-all ${
+                                  selectedCategory?.id === category.id 
+                                    ? 'ring-2 ring-primary' 
+                                    : ''
+                                } ${isSoldOut ? 'opacity-50' : ''}`}
+                                onClick={() => !isSoldOut && setSelectedCategory(category)}
+                              >
+                                <CardContent className="p-3">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-semibold">{category.name}</p>
+                                      {category.description && (
+                                        <p className="text-xs text-muted-foreground">{category.description}</p>
+                                      )}
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        {isSoldOut ? 'Sold Out' : `${available} available`}
+                                      </p>
+                                    </div>
+                                    <p className="font-bold text-primary">Rs. {category.price}</p>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
                       <Label>Number of Tickets</Label>
                       <Input
                         type="number"
                         min="1"
-                        max={event.totalTickets - event.soldTickets}
+                        max={availableTickets}
                         value={tickets}
                         onChange={(e) => setTickets(parseInt(e.target.value) || 1)}
                       />
@@ -248,7 +307,7 @@ const EventDetails = () => {
                     <div className="border-t pt-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Ticket Price</span>
-                        <span>Rs. {event.ticketPrice} × {tickets}</span>
+                        <span>Rs. {currentPrice} × {tickets}</span>
                       </div>
                       {discount > 0 && (
                         <div className="flex justify-between text-sm text-green-600">

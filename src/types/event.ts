@@ -1,3 +1,12 @@
+export interface TicketCategory {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  sold: number;
+  description: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -10,6 +19,7 @@ export interface Event {
   ticketPrice: number;
   totalTickets: number;
   soldTickets: number;
+  ticketCategories?: TicketCategory[];
   ticketsLiveFrom: string;
   image: string;
   vendorId?: string;
@@ -37,8 +47,15 @@ export interface Vendor {
   phone: string;
   email: string;
   city: string;
-  country: string;
   registrationDetails?: string;
+  paymentDetails?: {
+    accountHolderName: string;
+    bankName: string;
+    accountNumber: string;
+    iban?: string;
+    mobileWallet?: string;
+    paymentMethodType: 'bank' | 'mobile-wallet' | 'both';
+  };
 }
 
 export interface Booking {
