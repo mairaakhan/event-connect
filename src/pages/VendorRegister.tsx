@@ -18,8 +18,13 @@ const VendorRegister = () => {
     email: "",
     password: "",
     city: "",
-    country: "",
     registrationDetails: "",
+    accountHolderName: "",
+    bankName: "",
+    accountNumber: "",
+    iban: "",
+    mobileWallet: "",
+    paymentMethodType: "bank" as 'bank' | 'mobile-wallet' | 'both',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -42,7 +47,21 @@ const VendorRegister = () => {
     // Save vendor
     const newVendor = {
       id: Date.now().toString(),
-      ...formData,
+      organizationName: formData.organizationName,
+      contactPerson: formData.contactPerson,
+      phone: formData.phone,
+      email: formData.email,
+      password: formData.password,
+      city: formData.city,
+      registrationDetails: formData.registrationDetails,
+      paymentDetails: {
+        accountHolderName: formData.accountHolderName,
+        bankName: formData.bankName,
+        accountNumber: formData.accountNumber,
+        iban: formData.iban,
+        mobileWallet: formData.mobileWallet,
+        paymentMethodType: formData.paymentMethodType,
+      },
     };
     
     existingVendors.push(newVendor);
@@ -146,18 +165,6 @@ const VendorRegister = () => {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="country">Country *</Label>
-                  <Input
-                    id="country"
-                    required
-                    value={formData.country}
-                    onChange={(e) =>
-                      setFormData({ ...formData, country: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="registrationDetails">
                     Valid ID / Tax / Registration Details (Optional)
                   </Label>
@@ -171,9 +178,74 @@ const VendorRegister = () => {
                 </div>
               </div>
 
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold mb-4">Payment Account Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="accountHolderName">Account Holder Name *</Label>
+                    <Input
+                      id="accountHolderName"
+                      required
+                      value={formData.accountHolderName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, accountHolderName: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bankName">Bank Name *</Label>
+                    <Input
+                      id="bankName"
+                      required
+                      value={formData.bankName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, bankName: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="accountNumber">Account Number *</Label>
+                    <Input
+                      id="accountNumber"
+                      required
+                      value={formData.accountNumber}
+                      onChange={(e) =>
+                        setFormData({ ...formData, accountNumber: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="iban">IBAN (Optional)</Label>
+                    <Input
+                      id="iban"
+                      value={formData.iban}
+                      onChange={(e) =>
+                        setFormData({ ...formData, iban: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="mobileWallet">Mobile Wallet (Easypaisa / JazzCash)</Label>
+                    <Input
+                      id="mobileWallet"
+                      placeholder="03xxxxxxxxx"
+                      value={formData.mobileWallet}
+                      onChange={(e) =>
+                        setFormData({ ...formData, mobileWallet: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="border-t pt-4 mt-6">
                 <div className="bg-accent/10 p-4 rounded-lg mb-4">
                   <p className="text-sm font-semibold">Platform Commission: 8% of each ticket sale</p>
+                  <p className="text-xs text-muted-foreground mt-1">92% of ticket price goes to your registered payment account</p>
                 </div>
 
                 <div className="flex items-center space-x-2">

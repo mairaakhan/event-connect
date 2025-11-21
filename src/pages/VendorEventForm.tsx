@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Trash2, Plus } from "lucide-react";
+import { TicketCategory } from "@/types/event";
 
 const categories = ["music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
 
@@ -26,6 +27,13 @@ const VendorEventForm = () => {
 
   const [vendor, setVendor] = useState<any>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
+  const [currentCategory, setCurrentCategory] = useState({
+    name: "",
+    price: "",
+    quantity: "",
+    description: "",
+  });
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -34,8 +42,6 @@ const VendorEventForm = () => {
     category: "music",
     city: "",
     venue: "",
-    ticketPrice: "",
-    totalTickets: "",
     ticketsLiveFrom: "",
     enableEarlyBird: false,
     earlyBirdDiscount: "",
@@ -69,8 +75,6 @@ const VendorEventForm = () => {
           category: event.category,
           city: event.city,
           venue: event.venue,
-          ticketPrice: event.ticketPrice.toString(),
-          totalTickets: event.totalTickets.toString(),
           ticketsLiveFrom: event.ticketsLiveFrom.slice(0, 16),
           enableEarlyBird: !!event.earlyBird,
           earlyBirdDiscount: event.earlyBird?.discount?.toString() || "",
@@ -84,6 +88,7 @@ const VendorEventForm = () => {
           groupMinTickets: event.groupBooking?.minTickets?.toString() || "",
         });
         setImagePreview(event.image || "");
+        setTicketCategories(event.ticketCategories || []);
       }
     }
   }, [navigate, isEdit, id]);
@@ -99,17 +104,52 @@ const VendorEventForm = () => {
     }
   };
 
+  const handleAddCategory = () => {
+    if (!currentCategory.name || !currentCategory.price || !currentCategory.quantity) {
+      toast.error("Please fill in all required fields for the ticket category");
+      return;
+    }
+
+    const newCategory: TicketCategory = {
+      id: Date.now().toString(),
+      name: currentCategory.name,
+      price: parseFloat(currentCategory.price),
+      quantity: parseInt(currentCategory.quantity),
+      sold: 0,
+      description: currentCategory.description,
+    };
+
+    setTicketCategories([...ticketCategories, newCategory]);
+    setCurrentCategory({ name: "", price: "", quantity: "", description: "" });
+    toast.success("Ticket category added!");
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    setTicketCategories(ticketCategories.filter(cat => cat.id !== categoryId));
+    toast.success("Ticket category removed");
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!vendor) return;
 
+    if (ticketCategories.length === 0) {
+      toast.error("Please add at least one ticket category");
+      return;
+    }
+
+    // Calculate total tickets and base price from categories
+    const totalTickets = ticketCategories.reduce((sum, cat) => sum + cat.quantity, 0);
+    const basePrice = Math.min(...ticketCategories.map(cat => cat.price));
+
     const event = {
       id: isEdit ? id : Date.now().toString(),
       ...formData,
-      ticketPrice: parseFloat(formData.ticketPrice),
-      totalTickets: parseInt(formData.totalTickets),
+      ticketPrice: basePrice,
+      totalTickets: totalTickets,
       soldTickets: 0,
+      ticketCategories: ticketCategories,
       vendorId: vendor.id,
       vendorName: vendor.organizationName,
       image: imagePreview || "",
@@ -251,30 +291,6 @@ const VendorEventForm = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="ticketPrice">Ticket Price (Rs.) *</Label>
-                    <Input
-                      id="ticketPrice"
-                      type="number"
-                      required
-                      min="0"
-                      value={formData.ticketPrice}
-                      onChange={(e) => setFormData({ ...formData, ticketPrice: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="totalTickets">Total Tickets *</Label>
-                    <Input
-                      id="totalTickets"
-                      type="number"
-                      required
-                      min="1"
-                      value={formData.totalTickets}
-                      onChange={(e) => setFormData({ ...formData, totalTickets: e.target.value })}
-                    />
-                  </div>
-
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="ticketsLiveFrom">Tickets Live From *</Label>
                     <Input
@@ -329,6 +345,106 @@ const VendorEventForm = () => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Ticket Categories */}
+              <div className="space-y-4 border-t pt-6">
+                <h3 className="text-lg font-semibold">Ticket Categories *</h3>
+                
+                {/* Saved Categories */}
+                {ticketCategories.length > 0 && (
+                  <div className="space-y-3">
+                    {ticketCategories.map((category) => (
+                      <Card key={category.id} className="relative">
+                        <CardContent className="p-4">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pr-10">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Type</p>
+                              <p className="font-semibold">{category.name}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Price</p>
+                              <p className="font-semibold">Rs. {category.price}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Quantity</p>
+                              <p className="font-semibold">{category.quantity}</p>
+                            </div>
+                            <div className="col-span-2 md:col-span-1">
+                              <p className="text-xs text-muted-foreground">Description</p>
+                              <p className="text-sm">{category.description || "N/A"}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add New Category */}
+                <Card className="border-dashed">
+                  <CardContent className="p-4 space-y-4">
+                    <h4 className="font-medium">Add Ticket Category</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="catName">Ticket Type Name *</Label>
+                        <Input
+                          id="catName"
+                          placeholder="e.g., VIP, General, Premium"
+                          value={currentCategory.name}
+                          onChange={(e) => setCurrentCategory({ ...currentCategory, name: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="catPrice">Price (Rs.) *</Label>
+                        <Input
+                          id="catPrice"
+                          type="number"
+                          min="0"
+                          value={currentCategory.price}
+                          onChange={(e) => setCurrentCategory({ ...currentCategory, price: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="catQuantity">Quantity *</Label>
+                        <Input
+                          id="catQuantity"
+                          type="number"
+                          min="1"
+                          value={currentCategory.quantity}
+                          onChange={(e) => setCurrentCategory({ ...currentCategory, quantity: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="catDesc">Description</Label>
+                        <Input
+                          id="catDesc"
+                          placeholder="Optional description"
+                          value={currentCategory.description}
+                          onChange={(e) => setCurrentCategory({ ...currentCategory, description: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddCategory}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add This Category
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Early Bird */}
@@ -463,7 +579,7 @@ const VendorEventForm = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="groupMinTickets">Minimum Tickets Required</Label>
+                      <Label htmlFor="groupMinTickets">Minimum Tickets</Label>
                       <Input
                         id="groupMinTickets"
                         type="number"
@@ -478,14 +594,8 @@ const VendorEventForm = () => {
                 )}
               </div>
 
-              {/* Commission Note */}
-              <div className="bg-accent/10 p-4 rounded-lg">
-                <p className="text-sm font-semibold">
-                  Platform Commission: 8% of each ticket sale
-                </p>
-              </div>
-
-              <div className="flex gap-4">
+              {/* Submit Buttons */}
+              <div className="flex gap-4 pt-6 border-t">
                 <Button
                   type="button"
                   variant="outline"
