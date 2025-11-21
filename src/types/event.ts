@@ -58,13 +58,22 @@ export interface Vendor {
   };
 }
 
+export interface BookingItem {
+  categoryId: string;
+  categoryName: string;
+  quantity: number;
+  price: number;
+}
+
 export interface Booking {
   id: string;
   eventId: string;
-  tickets: number;
+  eventName: string;
+  items: BookingItem[];
   totalAmount: number;
   discountApplied?: number;
   paymentMethod: 'bank-transfer' | 'easypaisa';
   status: 'pending' | 'confirmed';
   createdAt: string;
+  vendorId?: string;
 }
