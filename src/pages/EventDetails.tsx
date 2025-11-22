@@ -471,16 +471,25 @@ const EventDetails = () => {
                         <span>Total Tickets</span>
                         <span>{totalTicketsSelected}</span>
                       </div>
-                      {Object.entries(selectedTickets).map(([categoryId, quantity]) => {
-                        const category = event.ticketCategories!.find(c => c.id === categoryId);
-                        if (!category || quantity === 0) return null;
-                        return (
-                          <div key={categoryId} className="flex justify-between text-sm text-muted-foreground">
-                            <span>{category.name} × {quantity}</span>
-                            <span>Rs. {(category.price * quantity).toFixed(0)}</span>
+                      {hasCategories ? (
+                        Object.entries(selectedTickets).map(([categoryId, quantity]) => {
+                          const category = event.ticketCategories!.find(c => c.id === categoryId);
+                          if (!category || quantity === 0) return null;
+                          return (
+                            <div key={categoryId} className="flex justify-between text-sm text-muted-foreground">
+                              <span>{category.name} × {quantity}</span>
+                              <span>Rs. {(category.price * quantity).toFixed(0)}</span>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        selectedTickets['general'] > 0 && (
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>General Admission × {selectedTickets['general']}</span>
+                            <span>Rs. {(event.ticketPrice * selectedTickets['general']).toFixed(0)}</span>
                           </div>
-                        );
-                      })}
+                        )
+                      )}
                       {discount > 0 && (
                         <div className="flex justify-between text-sm text-green-600">
                           <span>Discount</span>
