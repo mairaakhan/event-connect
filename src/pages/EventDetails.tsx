@@ -95,6 +95,10 @@ const EventDetails = () => {
           price += category.price * quantity;
         }
       });
+    } else {
+      // For events without categories, use general admission price
+      const quantity = selectedTickets['general'] || 0;
+      price = event.ticketPrice * quantity;
     }
     
     let discount = 0;
