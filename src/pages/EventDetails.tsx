@@ -162,6 +162,10 @@ const EventDetails = () => {
     }
 
     // Create booking object
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    const platformCommission = total * 0.08; // 8% platform commission
+    
     const booking: Booking = {
       id: `BK${Date.now()}`,
       eventId: event.id,
@@ -170,9 +174,11 @@ const EventDetails = () => {
       totalAmount: total,
       discountApplied: discount,
       paymentMethod,
-      status: "confirmed",
-      createdAt: new Date().toISOString(),
+      status: "reserved", // Start as reserved, waiting for payment
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
       vendorId: event.vendorId,
+      platformCommission,
     };
 
     // Save booking to localStorage
