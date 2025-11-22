@@ -72,8 +72,11 @@ export interface Booking {
   items: BookingItem[];
   totalAmount: number;
   discountApplied?: number;
-  paymentMethod: 'bank-transfer' | 'easypaisa';
-  status: 'pending' | 'confirmed';
+  paymentMethod: 'bank-transfer' | 'easypaisa' | 'jazzcash';
+  status: 'reserved' | 'paid' | 'cancelled';
   createdAt: string;
+  expiresAt: string; // 24 hour timeout
+  paidBy?: string; // user email/name who paid
   vendorId?: string;
+  platformCommission: number; // 8%
 }
