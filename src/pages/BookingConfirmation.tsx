@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Download, Share2, CheckCircle2 } from "lucide-react";
-import { Booking } from "@/types/event";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
@@ -15,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { Booking } from "@/types/event";
 
 const BookingConfirmation = () => {
   const { bookingId } = useParams();
