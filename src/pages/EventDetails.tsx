@@ -427,12 +427,12 @@ const EventDetails = () => {
                     <Button
                       onClick={handleContinueToBook}
                       className="w-full bg-gradient-accent hover:opacity-90"
-                      disabled={!isLive || totalTicketsSelected === 0}
+                      disabled={!isLive}
                     >
                       {!isLive 
                         ? `Live in ${daysUntilLive} days` 
                         : totalTicketsSelected === 0 
-                        ? "Select Tickets"
+                        ? "Select Tickets First"
                         : "Continue to Book"
                       }
                     </Button>
