@@ -114,64 +114,6 @@ const VendorDashboard = () => {
 
         </div>
 
-        {/* Recent Bookings */}
-        {bookings.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Recent Bookings</CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/vendor/bookings")}
-              >
-                See All
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {bookings.slice(0, 5).map((booking) => (
-                  <Card key={booking.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold">{booking.eventName}</h4>
-                            <Badge variant="outline" className="text-xs">
-                              {booking.status}
-                            </Badge>
-                          </div>
-                          <div className="space-y-1 text-sm">
-                            <p className="text-muted-foreground">
-                              Booking ID: {booking.id}
-                            </p>
-                            <p className="text-muted-foreground">
-                              {format(new Date(booking.createdAt), "PPP 'at' p")}
-                            </p>
-                            <div className="mt-2">
-                              {booking.items.map((item, idx) => (
-                                <p key={idx} className="text-xs">
-                                  {item.categoryName} × {item.quantity} - Rs. {(item.price * item.quantity).toFixed(0)}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-lg text-primary">
-                            Rs. {booking.totalAmount.toFixed(0)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Your earnings: Rs. {(booking.totalAmount * 0.92).toFixed(0)}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Events with Categories Breakdown */}
         {events.some(e => e.ticketCategories && e.ticketCategories.length > 0) && (

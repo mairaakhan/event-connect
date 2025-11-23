@@ -21,12 +21,14 @@ const VendorEventAnalytics = () => {
 
     const vendorData = JSON.parse(auth);
     const events = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    const foundEvent = events.find((e: any) => e.id === id);
+    const foundEvent = events.find((e: any) => e.id === id && e.vendorId === vendorData.id);
     
     if (foundEvent) {
-      // Calculate real-time analytics from bookings
+      // Calculate real-time analytics from PAID bookings only for THIS vendor's event
       const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-      const eventBookings = allBookings.filter((b: any) => b.eventId === foundEvent.id && b.status === 'paid');
+      const eventBookings = allBookings.filter(
+        (b: any) => b.eventId === foundEvent.id && b.vendorId === vendorData.id && b.status === 'paid'
+      );
       
       const totalSold = eventBookings.reduce((sum: number, booking: any) => 
         sum + booking.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0
