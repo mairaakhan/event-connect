@@ -48,7 +48,28 @@ const VendorEvents = () => {
   const loadEvents = (vendorId: string) => {
     const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
     const vendorEvents = allEvents.filter((e: any) => e.vendorId === vendorId);
-    setEvents(vendorEvents);
+    
+    // Calculate real analytics from bookings for each event
+    const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
+    
+    const eventsWithAnalytics = vendorEvents.map((event: any) => {
+      const eventBookings = allBookings.filter((b: any) => b.eventId === event.id);
+      
+      // Calculate total tickets sold and revenue from actual bookings
+      const soldTickets = eventBookings.reduce((sum: number, booking: any) => 
+        sum + booking.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0
+      );
+      
+      const revenue = eventBookings.reduce((sum: number, booking: any) => sum + booking.totalAmount, 0);
+      
+      return {
+        ...event,
+        soldTickets,
+        revenue
+      };
+    });
+    
+    setEvents(eventsWithAnalytics);
   };
 
   const handleDelete = (eventId: string) => {
@@ -111,7 +132,8 @@ const VendorEvents = () => {
             {events.map((event) => {
               const status = getEventStatus(event);
               const soldTickets = event.soldTickets || 0;
-              const revenue = soldTickets * event.ticketPrice * 0.92;
+              const revenue = event.revenue || 0;
+              const organizerEarnings = revenue * 0.92;
 
               return (
                 <Card key={event.id} className="overflow-hidden">
@@ -162,9 +184,9 @@ const VendorEvents = () => {
                       <div>
                         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                           <DollarSign className="w-3 h-3" />
-                          Revenue
+                          Earnings
                         </div>
-                        <div className="font-bold text-primary">Rs. {revenue.toFixed(0)}</div>
+                        <div className="font-bold text-primary">Rs. {organizerEarnings.toFixed(0)}</div>
                       </div>
                     </div>
 

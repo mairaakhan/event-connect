@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Calendar,
   MapPin,
@@ -28,8 +27,6 @@ const EventDetails = () => {
   const navigate = useNavigate();
   const [event, setEvent] = useState<Event | null>(null);
   const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
-  const [showBooking, setShowBooking] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"bank-transfer" | "easypaisa">("easypaisa");
 
   // Load event from both mock events and localStorage
   useEffect(() => {
@@ -129,7 +126,9 @@ const EventDetails = () => {
       toast.error("Please select at least one ticket");
       return;
     }
-    setShowBooking(true);
+    
+    // Skip payment method selection, go directly to booking confirmation
+    handleConfirmBooking();
   };
 
   const handleConfirmBooking = () => {
@@ -173,7 +172,7 @@ const EventDetails = () => {
       items: bookingItems,
       totalAmount: total,
       discountApplied: discount,
-      paymentMethod,
+      paymentMethod: "easypaisa", // Default payment method
       status: "reserved", // Start as reserved, waiting for payment
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
@@ -355,214 +354,171 @@ const EventDetails = () => {
           <div className="lg:col-span-1">
             <Card className="sticky top-20">
               <CardContent className="p-6">
-                {!showBooking ? (
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold">Book Tickets</h3>
-                    
-                    {/* Ticket Categories Selection with +/- buttons */}
-                    {hasCategories ? (
-                      <div className="space-y-3">
-                        <Label>Select Tickets</Label>
-                        {event.ticketCategories!.map((category) => {
-                          const available = category.quantity - category.sold;
-                          const isSoldOut = available <= 0;
-                          const selected = selectedTickets[category.id] || 0;
-                          
-                          return (
-                            <Card 
-                              key={category.id}
-                              className={`${isSoldOut ? 'opacity-50' : ''}`}
-                            >
-                              <CardContent className="p-4">
-                                <div className="space-y-3">
-                                  <div className="flex justify-between items-start">
-                                    <div className="flex-1">
-                                      <p className="font-semibold">{category.name}</p>
-                                      {category.description && (
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          {category.description}
-                                        </p>
-                                      )}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold">Book Tickets</h3>
+                  
+                  {/* Ticket Categories Selection with +/- buttons */}
+                  {hasCategories ? (
+                    <div className="space-y-3">
+                      <Label>Select Tickets</Label>
+                      {event.ticketCategories!.map((category) => {
+                        const available = category.quantity - category.sold;
+                        const isSoldOut = available <= 0;
+                        const selected = selectedTickets[category.id] || 0;
+                        
+                        return (
+                          <Card 
+                            key={category.id}
+                            className={`${isSoldOut ? 'opacity-50' : ''}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <p className="font-semibold">{category.name}</p>
+                                    {category.description && (
                                       <p className="text-xs text-muted-foreground mt-1">
-                                        {isSoldOut ? 'Sold Out' : `${available} available`}
+                                        {category.description}
                                       </p>
-                                    </div>
-                                    <p className="font-bold text-primary">Rs. {category.price}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {isSoldOut ? 'Sold Out' : `${available} available`}
+                                    </p>
                                   </div>
-                                  
-                                  {!isSoldOut && (
-                                    <div className="flex items-center justify-center gap-3">
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => updateTicketCount(category.id, -1)}
-                                        disabled={selected === 0}
-                                      >
-                                        <Minus className="h-4 w-4" />
-                                      </Button>
-                                      <span className="font-bold text-lg min-w-[3rem] text-center">
-                                        {selected}
-                                      </span>
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => updateTicketCount(category.id, 1)}
-                                        disabled={selected >= available}
-                                      >
-                                        <Plus className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  )}
+                                  <p className="font-bold text-primary">Rs. {category.price}</p>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <Label>Number of Tickets</Label>
-                        <Card>
-                          <CardContent className="p-4">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <p className="font-semibold">General Admission</p>
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    {availableTickets} available
-                                  </p>
-                                </div>
-                                <p className="font-bold text-primary">Rs. {event.ticketPrice}</p>
+                                
+                                {!isSoldOut && (
+                                  <div className="flex items-center justify-center gap-3">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => updateTicketCount(category.id, -1)}
+                                      disabled={selected === 0}
+                                    >
+                                      <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <span className="font-bold text-lg min-w-[3rem] text-center">
+                                      {selected}
+                                    </span>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => updateTicketCount(category.id, 1)}
+                                      disabled={selected >= available}
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
-                              
-                              <div className="flex items-center justify-center gap-3">
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    const current = selectedTickets['general'] || 0;
-                                    if (current > 0) {
-                                      setSelectedTickets({ general: current - 1 });
-                                    }
-                                  }}
-                                  disabled={!selectedTickets['general'] || selectedTickets['general'] === 0}
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </Button>
-                                <span className="font-bold text-lg min-w-[3rem] text-center">
-                                  {selectedTickets['general'] || 0}
-                                </span>
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    const current = selectedTickets['general'] || 0;
-                                    if (current < availableTickets) {
-                                      setSelectedTickets({ general: current + 1 });
-                                    }
-                                  }}
-                                  disabled={(selectedTickets['general'] || 0) >= availableTickets}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Label>Number of Tickets</Label>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <p className="font-semibold">General Admission</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {availableTickets} available
+                                </p>
                               </div>
+                              <p className="font-bold text-primary">Rs. {event.ticketPrice}</p>
                             </div>
-                          </CardContent>
-                        </Card>
+                            
+                            <div className="flex items-center justify-center gap-3">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  const current = selectedTickets['general'] || 0;
+                                  if (current > 0) {
+                                    setSelectedTickets({ general: current - 1 });
+                                  }
+                                }}
+                                disabled={!selectedTickets['general'] || selectedTickets['general'] === 0}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="font-bold text-lg min-w-[3rem] text-center">
+                                {selectedTickets['general'] || 0}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  const current = selectedTickets['general'] || 0;
+                                  if (current < availableTickets) {
+                                    setSelectedTickets({ general: current + 1 });
+                                  }
+                                }}
+                                disabled={(selectedTickets['general'] || 0) >= availableTickets}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Total Tickets</span>
+                      <span>{totalTicketsSelected}</span>
+                    </div>
+                    {hasCategories ? (
+                      Object.entries(selectedTickets).map(([categoryId, quantity]) => {
+                        const category = event.ticketCategories!.find(c => c.id === categoryId);
+                        if (!category || quantity === 0) return null;
+                        return (
+                          <div key={categoryId} className="flex justify-between text-sm text-muted-foreground">
+                            <span>{category.name} × {quantity}</span>
+                            <span>Rs. {(category.price * quantity).toFixed(0)}</span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      selectedTickets['general'] > 0 && (
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>General Admission × {selectedTickets['general']}</span>
+                          <span>Rs. {(event.ticketPrice * selectedTickets['general']).toFixed(0)}</span>
+                        </div>
+                      )
+                    )}
+                    {discount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount</span>
+                        <span>- Rs. {discount.toFixed(0)}</span>
                       </div>
                     )}
-
-                    <div className="border-t pt-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Total Tickets</span>
-                        <span>{totalTicketsSelected}</span>
-                      </div>
-                      {hasCategories ? (
-                        Object.entries(selectedTickets).map(([categoryId, quantity]) => {
-                          const category = event.ticketCategories!.find(c => c.id === categoryId);
-                          if (!category || quantity === 0) return null;
-                          return (
-                            <div key={categoryId} className="flex justify-between text-sm text-muted-foreground">
-                              <span>{category.name} × {quantity}</span>
-                              <span>Rs. {(category.price * quantity).toFixed(0)}</span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        selectedTickets['general'] > 0 && (
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>General Admission × {selectedTickets['general']}</span>
-                            <span>Rs. {(event.ticketPrice * selectedTickets['general']).toFixed(0)}</span>
-                          </div>
-                        )
-                      )}
-                      {discount > 0 && (
-                        <div className="flex justify-between text-sm text-green-600">
-                          <span>Discount</span>
-                          <span>- Rs. {discount.toFixed(0)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                        <span>Total</span>
-                        <span className="text-primary">Rs. {total.toFixed(0)}</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handleContinueToBook}
-                      className="w-full bg-gradient-accent hover:opacity-90"
-                      disabled={!isLive}
-                    >
-                      {!isLive 
-                        ? `Live in ${daysUntilLive} days` 
-                        : totalTicketsSelected === 0 
-                        ? "Select Tickets First"
-                        : "Continue to Book"
-                      }
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-bold">Payment Method</h3>
-                    <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
-                      <div className="flex items-center space-x-2 border rounded-lg p-3">
-                        <RadioGroupItem value="easypaisa" id="easypaisa" />
-                        <Label htmlFor="easypaisa" className="cursor-pointer flex-1">
-                          Easypaisa
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2 border rounded-lg p-3">
-                        <RadioGroupItem value="bank-transfer" id="bank-transfer" />
-                        <Label htmlFor="bank-transfer" className="cursor-pointer flex-1">
-                          Bank Transfer
-                        </Label>
-                      </div>
-                    </RadioGroup>
-
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between font-bold text-lg">
-                        <span>Total Amount</span>
-                        <span className="text-primary">Rs. {total.toFixed(0)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowBooking(false)}
-                        className="flex-1"
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        onClick={handleConfirmBooking}
-                        className="flex-1 bg-gradient-accent hover:opacity-90"
-                      >
-                        Confirm Booking
-                      </Button>
+                    <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                      <span>Total</span>
+                      <span className="text-primary">Rs. {total.toFixed(0)}</span>
                     </div>
                   </div>
-                )}
+
+                  <Button
+                    onClick={handleContinueToBook}
+                    className="w-full bg-gradient-accent hover:opacity-90"
+                    disabled={!isLive}
+                  >
+                    {!isLive 
+                      ? `Live in ${daysUntilLive} days` 
+                      : totalTicketsSelected === 0 
+                      ? "Select Tickets First"
+                      : "Continue to Book"
+                    }
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
