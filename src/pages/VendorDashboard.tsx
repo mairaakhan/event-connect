@@ -70,7 +70,7 @@ const VendorDashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -112,24 +112,6 @@ const VendorDashboard = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Performance
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {totalTicketsAvailable > 0 
-                  ? ((totalTicketsSold / totalTicketsAvailable) * 100).toFixed(0)
-                  : 0}%
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Avg. ticket sales
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Recent Bookings */}

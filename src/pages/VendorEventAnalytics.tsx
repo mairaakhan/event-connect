@@ -19,11 +19,26 @@ const VendorEventAnalytics = () => {
       return;
     }
 
+    const vendorData = JSON.parse(auth);
     const events = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
     const foundEvent = events.find((e: any) => e.id === id);
     
     if (foundEvent) {
-      setEvent(foundEvent);
+      // Calculate real-time analytics from bookings
+      const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
+      const eventBookings = allBookings.filter((b: any) => b.eventId === foundEvent.id && b.status === 'paid');
+      
+      const totalSold = eventBookings.reduce((sum: number, booking: any) => 
+        sum + booking.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0
+      );
+      
+      const revenue = eventBookings.reduce((sum: number, booking: any) => sum + booking.totalAmount, 0);
+      
+      setEvent({
+        ...foundEvent,
+        soldTickets: totalSold,
+        revenue: revenue
+      });
     } else {
       navigate("/vendor/events");
     }
@@ -32,10 +47,15 @@ const VendorEventAnalytics = () => {
   if (!event) return null;
 
   const soldTickets = event.soldTickets || 0;
-  const totalRevenue = soldTickets * event.ticketPrice;
+  const totalRevenue = event.revenue || 0;
   const revenueAfterCommission = totalRevenue * 0.92;
   const commission = totalRevenue * 0.08;
-  const salesPercentage = ((soldTickets / event.totalTickets) * 100).toFixed(1);
+  
+  const totalTickets = event.ticketCategories && event.ticketCategories.length > 0
+    ? event.ticketCategories.reduce((sum: number, cat: any) => sum + cat.quantity, 0)
+    : event.totalTickets;
+  
+  const salesPercentage = ((soldTickets / totalTickets) * 100).toFixed(1);
 
   const handleShare = () => {
     const url = `${window.location.origin}/event/${event.id}`;
@@ -146,8 +166,8 @@ const VendorEventAnalytics = () => {
                   <p className="font-semibold">{event.venue}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Ticket Price</p>
-                  <p className="font-semibold">Rs. {event.ticketPrice}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Total Tickets</p>
+                  <p className="font-semibold">{totalTickets}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Status</p>

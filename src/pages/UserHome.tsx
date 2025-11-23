@@ -29,11 +29,16 @@ const UserHome = () => {
   const [city, setCity] = useState("all");
   const [allEvents, setAllEvents] = useState<Event[]>([]);
 
-  // Load events from localStorage and combine with mock events
+  // Load events from localStorage and combine with mock events, filter out past events
   useEffect(() => {
     const vendorEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
     const combined = [...mockEvents, ...vendorEvents];
-    setAllEvents(combined);
+    
+    // Filter out past events
+    const now = new Date();
+    const upcomingEvents = combined.filter(event => new Date(event.startDate) > now);
+    
+    setAllEvents(upcomingEvents);
   }, []);
 
   const filteredEvents = useMemo(() => {
