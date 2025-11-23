@@ -135,8 +135,15 @@ const VendorDashboard = () => {
         {/* Recent Bookings */}
         {bookings.length > 0 && (
           <Card className="mb-8">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Recent Bookings</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/vendor/bookings")}
+              >
+                See All
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
