@@ -3,23 +3,6 @@ import { Event } from "@/types/event";
 export const mockEvents: Event[] = [
   {
     id: "1",
-    name: "Jazz Returns, The Josemi Garzon Quartet, Live in Concert",
-    description: "Experience an unforgettable evening of live jazz music featuring the renowned Josemi Garzon Quartet from Spain. A musical journey you won't forget!",
-    startDate: "2025-11-22T19:00:00",
-    endDate: "2025-11-22T23:00:00",
-    category: "music",
-    city: "Lahore",
-    venue: "Alhamra Arts Council",
-    ticketPrice: 3500,
-    totalTickets: 300,
-    soldTickets: 150,
-    ticketsLiveFrom: "2025-10-20T10:00:00",
-    image: "https://v3.ticketwala.pk/uploads/events/banner/jazz-returns-the-josemi-garzon-quartet-live-in-concert-1763021290-4394.jpeg",
-    vendorName: "Alhamra Arts Council",
-    status: "live",
-  },
-  {
-    id: "2",
     name: "International Boxing Championship 2",
     description: "Witness the most thrilling boxing matches featuring international fighters. An action-packed event for all sports enthusiasts!",
     startDate: "2025-11-26T18:00:00",
@@ -36,7 +19,7 @@ export const mockEvents: Event[] = [
     status: "live",
   },
   {
-    id: "3",
+    id: "2",
     name: "Sadaa-e-Ishq with Zeeshan Ali",
     description: "An exclusive Fatehi Nishist by Zeeshan Ali. Experience soulful music and poetry in this mesmerizing performance.",
     startDate: "2025-11-29T20:00:00",
@@ -53,7 +36,7 @@ export const mockEvents: Event[] = [
     status: "live",
   },
   {
-    id: "4",
+    id: "3",
     name: "Kolachi Edition",
     description: "Karachi's premier music and cultural festival featuring top artists and performances. Don't miss this spectacular event!",
     startDate: "2025-11-29T19:00:00",
@@ -70,7 +53,7 @@ export const mockEvents: Event[] = [
     status: "live",
   },
   {
-    id: "5",
+    id: "4",
     name: "Pakistan Idol",
     description: "Pakistan's biggest singing competition is back! Watch talented singers compete for the ultimate title in this thrilling event.",
     startDate: "2025-12-08T19:00:00",
@@ -87,7 +70,7 @@ export const mockEvents: Event[] = [
     status: "live",
   },
   {
-    id: "6",
+    id: "5",
     name: "GOONJ 2.0",
     description: "The biggest music festival returns! Multiple artists, amazing performances, and unforgettable moments await you at GOONJ 2.0.",
     startDate: "2025-12-05T17:00:00",
@@ -108,7 +91,7 @@ export const mockEvents: Event[] = [
     },
   },
   {
-    id: "7",
+    id: "6",
     name: "Meesha Shafi Live",
     description: "Experience the powerhouse vocals of Meesha Shafi in an exclusive live concert. A night of incredible music and performances!",
     startDate: "2025-12-05T20:00:00",
@@ -125,7 +108,7 @@ export const mockEvents: Event[] = [
     status: "live",
   },
   {
-    id: "8",
+    id: "7",
     name: "Sadaa-e-Ishq with Zeeshan Ali - Lahore",
     description: "Zeeshan Ali returns to Lahore for another mesmerizing evening of Sufi music and poetry. An unforgettable spiritual experience!",
     startDate: "2025-12-06T20:00:00",
