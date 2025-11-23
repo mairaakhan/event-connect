@@ -21,6 +21,7 @@ export const VendorNavbar = () => {
   const navItems = [
     { label: "Home", path: "/vendor/dashboard" },
     { label: "My Events", path: "/vendor/events" },
+    { label: "All Bookings", path: "/vendor/bookings" },
   ];
 
   return (
