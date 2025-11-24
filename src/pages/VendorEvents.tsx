@@ -49,24 +49,37 @@ const VendorEvents = () => {
     const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
     const vendorEvents = allEvents.filter((e: any) => e.vendorId === vendorId);
     
-    // Calculate real analytics from bookings for each event
+    // Calculate real analytics from paid bookings for each event
     const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
     
     const eventsWithAnalytics = vendorEvents.map((event: any) => {
-      const eventBookings = allBookings.filter((b: any) => b.eventId === event.id);
+      const eventBookings = allBookings.filter((b: any) => b.eventId === event.id && b.status === "paid");
       
-      // Calculate total tickets sold and revenue from actual bookings
+      // Calculate total tickets sold and revenue from actual paid bookings
       const soldTickets = eventBookings.reduce((sum: number, booking: any) => 
         sum + booking.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0
       );
       
       const revenue = eventBookings.reduce((sum: number, booking: any) => sum + booking.totalAmount, 0);
+      const organizerEarnings = revenue * 0.92;
       
-      return {
-        ...event,
-        soldTickets,
-        revenue
-      };
+      // Update ticket categories with sold counts
+      let updatedEvent = { ...event, soldTickets, revenue, organizerEarnings };
+      
+      if (event.ticketCategories && event.ticketCategories.length > 0) {
+        const updatedCategories = event.ticketCategories.map((category: any) => {
+          const soldCount = eventBookings.reduce((sum: number, booking: any) => {
+            const categoryItem = booking.items.find((item: any) => item.categoryId === category.id);
+            return sum + (categoryItem?.quantity || 0);
+          }, 0);
+          
+          return { ...category, sold: soldCount };
+        });
+        
+        updatedEvent = { ...updatedEvent, ticketCategories: updatedCategories };
+      }
+      
+      return updatedEvent;
     });
     
     setEvents(eventsWithAnalytics);
