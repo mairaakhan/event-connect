@@ -29,9 +29,11 @@ const VendorDashboard = () => {
     const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
     const vendorEvents = allEvents.filter((e: Event) => e.vendorId === vendorData.id);
     
-    // Get all bookings to calculate sold tickets per category
+    // Get all bookings for vendor's events (filter by eventId, not vendorId)
     const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-    const vendorBookings = allBookings.filter((b: Booking) => b.vendorId === vendorData.id && b.status === "paid");
+    const vendorBookings = allBookings.filter((b: Booking) => 
+      vendorEvents.some((e: Event) => e.id === b.eventId) && b.status === "paid"
+    );
     
     // Update events with sold ticket counts
     const updatedEvents = vendorEvents.map(event => {
@@ -119,16 +121,16 @@ const VendorDashboard = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Your Earnings (92%)
+                Total Revenue
               </CardTitle>
               <DollarSign className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                Rs. {organizerEarnings.toFixed(0)}
+                Rs. {totalRevenue.toFixed(0)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Platform fee: Rs. {platformCommission.toFixed(0)} (8%)
+                Your earnings: Rs. {organizerEarnings.toFixed(0)} (92%) • Platform: Rs. {platformCommission.toFixed(0)} (8%)
               </p>
             </CardContent>
           </Card>
