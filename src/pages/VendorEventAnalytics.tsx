@@ -36,11 +36,23 @@ const VendorEventAnalytics = () => {
       
       const revenue = eventBookings.reduce((sum: number, booking: any) => sum + booking.totalAmount, 0);
       
-      setEvent({
-        ...foundEvent,
-        soldTickets: totalSold,
-        revenue: revenue
-      });
+      // Update ticket categories with sold counts
+      let updatedEvent = { ...foundEvent, soldTickets: totalSold, revenue };
+      
+      if (foundEvent.ticketCategories && foundEvent.ticketCategories.length > 0) {
+        const updatedCategories = foundEvent.ticketCategories.map((category: any) => {
+          const soldCount = eventBookings.reduce((sum: number, booking: any) => {
+            const categoryItem = booking.items.find((item: any) => item.categoryId === category.id);
+            return sum + (categoryItem?.quantity || 0);
+          }, 0);
+          
+          return { ...category, sold: soldCount };
+        });
+        
+        updatedEvent = { ...updatedEvent, ticketCategories: updatedCategories };
+      }
+      
+      setEvent(updatedEvent);
     } else {
       navigate("/vendor/events");
     }

@@ -28,11 +28,32 @@ const VendorDashboard = () => {
     // Get vendor's events
     const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
     const vendorEvents = allEvents.filter((e: Event) => e.vendorId === vendorData.id);
-    setEvents(vendorEvents);
-
-    // Get vendor's bookings
+    
+    // Get all bookings to calculate sold tickets per category
     const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-    const vendorBookings = allBookings.filter((b: Booking) => b.vendorId === vendorData.id);
+    const vendorBookings = allBookings.filter((b: Booking) => b.vendorId === vendorData.id && b.status === "paid");
+    
+    // Update events with sold ticket counts
+    const updatedEvents = vendorEvents.map(event => {
+      const eventBookings = vendorBookings.filter(b => b.eventId === event.id);
+      
+      if (event.ticketCategories && event.ticketCategories.length > 0) {
+        const updatedCategories = event.ticketCategories.map(category => {
+          const soldCount = eventBookings.reduce((sum, booking) => {
+            const categoryItem = booking.items.find(item => item.categoryId === category.id);
+            return sum + (categoryItem?.quantity || 0);
+          }, 0);
+          
+          return { ...category, sold: soldCount };
+        });
+        
+        return { ...event, ticketCategories: updatedCategories };
+      }
+      
+      return event;
+    });
+    
+    setEvents(updatedEvents);
     setBookings(vendorBookings);
   }, [navigate]);
 

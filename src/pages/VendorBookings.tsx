@@ -23,6 +23,8 @@ const VendorBookings = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   useEffect(() => {
     const auth = localStorage.getItem("vendorAuth");
@@ -48,7 +50,13 @@ const VendorBookings = () => {
   const filteredBookings = bookings.filter((booking) => {
     const eventMatch = selectedEvent === "all" || booking.eventId === selectedEvent;
     const statusMatch = statusFilter === "all" || booking.status === statusFilter;
-    return eventMatch && statusMatch;
+    
+    // Date filtering
+    const bookingDate = new Date(booking.createdAt);
+    const dateMatch = (!startDate || bookingDate >= new Date(startDate)) && 
+                      (!endDate || bookingDate <= new Date(endDate + "T23:59:59"));
+    
+    return eventMatch && statusMatch && dateMatch;
   });
 
   const totalRevenue = filteredBookings.reduce((sum, b) => sum + b.totalAmount, 0);
@@ -127,7 +135,7 @@ const VendorBookings = () => {
         {/* Filters */}
         <Card className="mb-8">
           <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex-1">
                 <label className="text-sm font-medium mb-2 block">Filter by Event</label>
                 <Select value={selectedEvent} onValueChange={setSelectedEvent}>
@@ -158,6 +166,26 @@ const VendorBookings = () => {
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-2 block">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
               </div>
             </div>
           </CardContent>
