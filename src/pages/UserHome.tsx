@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon, Search } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { GradientBackground } from "@/components/GradientBackground";
 
 const categories = ["all", "music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
 const cities = ["all", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Multan", "Faisalabad"];
@@ -54,19 +55,25 @@ const UserHome = () => {
   }, [allEvents, startDate, endDate, category, city]);
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
-      <UserNavbar />
+    <div className="min-h-screen relative">
+      <GradientBackground />
       
-      {/* Hero Section */}
-      <section className="container py-12 md:py-20">
-        <div className="text-center max-w-3xl mx-auto mb-12 animate-fade-in">
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-primary bg-clip-text text-transparent">
-            event.pk
-          </h1>
-        </div>
+      <div className="relative z-10">
+        <UserNavbar />
+        
+        {/* Hero Section */}
+        <section className="container py-12 md:py-20">
+          <div className="text-center max-w-3xl mx-auto mb-12 animate-fade-in">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4 text-white drop-shadow-lg">
+              event.pk
+            </h1>
+            <p className="text-lg md:text-xl text-white/90 font-medium">
+              Discover, book, create, and manage events with ease.
+            </p>
+          </div>
 
-        {/* Filters */}
-        <div className="bg-card rounded-2xl shadow-lg p-6 mb-12 border border-border">
+          {/* Filters */}
+          <div className="bg-card/95 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-12 border border-border">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Start Date</Label>
@@ -152,20 +159,21 @@ const UserHome = () => {
               </Select>
             </div>
           </div>
-        </div>
-
-        {/* Events Grid */}
-        <div>
-          <h2 className="text-2xl font-bold mb-6">
-            {filteredEvents.length > 0 ? "Upcoming Events" : "No events found"}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
           </div>
-        </div>
-      </section>
+
+          {/* Events Grid */}
+          <div>
+            <h2 className="text-2xl font-bold mb-6 text-white drop-shadow-md">
+              {filteredEvents.length > 0 ? "Upcoming Events" : "No events found"}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredEvents.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 };
