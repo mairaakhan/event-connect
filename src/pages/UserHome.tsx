@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { UserNavbar } from "@/components/UserNavbar";
 import { EventCard } from "@/components/EventCard";
+import { Footer } from "@/components/Footer";
 import { mockEvents } from "@/data/mockEvents";
 import { Event } from "@/types/event";
 import { Input } from "@/components/ui/input";
@@ -173,6 +174,8 @@ const UserHome = () => {
             </div>
           </div>
         </section>
+        
+        <Footer />
       </div>
     </div>
   );
