@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { VendorNavbar } from "@/components/VendorNavbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Calendar, DollarSign, Ticket, TrendingUp } from "lucide-react";
+import { Calendar, DollarSign, Ticket } from "lucide-react";
 import { Event, Booking } from "@/types/event";
-import { format } from "date-fns";
+import { SalesAnalyticsChart } from "@/components/SalesAnalyticsChart";
 
 const VendorDashboard = () => {
   const navigate = useNavigate();
@@ -36,12 +34,12 @@ const VendorDashboard = () => {
     );
     
     // Update events with sold ticket counts
-    const updatedEvents = vendorEvents.map(event => {
-      const eventBookings = vendorBookings.filter(b => b.eventId === event.id);
+    const updatedEvents = vendorEvents.map((event: Event) => {
+      const eventBookings = vendorBookings.filter((b: Booking) => b.eventId === event.id);
       
       if (event.ticketCategories && event.ticketCategories.length > 0) {
         const updatedCategories = event.ticketCategories.map(category => {
-          const soldCount = eventBookings.reduce((sum, booking) => {
+          const soldCount = eventBookings.reduce((sum: number, booking: Booking) => {
             const categoryItem = booking.items.find(item => item.categoryId === category.id);
             return sum + (categoryItem?.quantity || 0);
           }, 0);
@@ -69,14 +67,6 @@ const VendorDashboard = () => {
   const totalRevenue = bookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
   const platformCommission = totalRevenue * 0.08;
   const organizerEarnings = totalRevenue * 0.92;
-
-  // Calculate total tickets available
-  const totalTicketsAvailable = events.reduce((sum, e) => {
-    if (e.ticketCategories && e.ticketCategories.length > 0) {
-      return sum + e.ticketCategories.reduce((catSum, cat) => catSum + cat.quantity, 0);
-    }
-    return sum + e.totalTickets;
-  }, 0);
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -134,13 +124,16 @@ const VendorDashboard = () => {
               </p>
             </CardContent>
           </Card>
-
         </div>
 
+        {/* Sales Analytics Chart */}
+        <div className="mb-6 sm:mb-8">
+          <SalesAnalyticsChart events={events} bookings={bookings} />
+        </div>
 
         {/* Events with Categories Breakdown */}
         {events.some(e => e.ticketCategories && e.ticketCategories.length > 0) && (
-          <Card className="mb-8">
+          <Card className="mb-6 sm:mb-8">
             <CardHeader>
               <CardTitle>Ticket Categories Performance</CardTitle>
             </CardHeader>
