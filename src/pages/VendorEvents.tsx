@@ -94,8 +94,14 @@ const VendorEvents = () => {
   };
 
   const getEventStatus = (event: any) => {
+    const eventEndDate = new Date(event.endDate || event.startDate);
     const ticketsLiveDate = new Date(event.ticketsLiveFrom);
     const daysUntilLive = differenceInDays(ticketsLiveDate, new Date());
+    
+    // Check if event has already ended
+    if (isPast(eventEndDate)) {
+      return { label: "Tickets Expired", variant: "destructive" as const };
+    }
     
     if (isPast(ticketsLiveDate)) {
       return { label: "Tickets are Live", variant: "default" as const };
@@ -108,17 +114,17 @@ const VendorEvents = () => {
     <div className="min-h-screen bg-gradient-hero">
       <VendorNavbar />
       
-      <div className="container py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">My Events</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">My Events</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Manage your listed events
             </p>
           </div>
           <Button
             onClick={() => navigate("/vendor/events/new")}
-            className="bg-gradient-accent hover:opacity-90"
+            className="bg-gradient-accent hover:opacity-90 w-full sm:w-auto"
           >
             List New Event
           </Button>
@@ -141,7 +147,7 @@ const VendorEvents = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {events.map((event) => {
               const status = getEventStatus(event);
               const soldTickets = event.soldTickets || 0;

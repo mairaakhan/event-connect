@@ -81,26 +81,26 @@ const VendorEventAnalytics = () => {
     <div className="min-h-screen bg-gradient-hero">
       <VendorNavbar />
       
-      <div className="container py-8">
+      <div className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <Button
           variant="ghost"
           onClick={() => navigate("/vendor/events")}
-          className="mb-6"
+          className="mb-4 sm:mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Events
         </Button>
 
         <div className="max-w-5xl">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">{event.name}</h1>
-            <p className="text-muted-foreground">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">{event.name}</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {event.city} • {format(new Date(event.startDate), "PPP")}
             </p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">

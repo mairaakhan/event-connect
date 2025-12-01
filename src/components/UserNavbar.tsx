@@ -14,7 +14,7 @@ export const UserNavbar = () => {
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center">
-          <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          <span className="text-lg sm:text-xl font-bold bg-gradient-primary bg-clip-text text-transparent font-oughter">
             event.pk
           </span>
         </Link>

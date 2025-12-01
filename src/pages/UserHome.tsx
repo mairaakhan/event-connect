@@ -63,19 +63,19 @@ const UserHome = () => {
         <UserNavbar />
         
         {/* Hero Section */}
-        <section className="container py-12 md:py-20">
-          <div className="text-center max-w-3xl mx-auto mb-12 animate-fade-in">
-            <h1 className="text-4xl md:text-6xl font-bold mb-4 text-white drop-shadow-lg">
+        <section className="container px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-20">
+          <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 animate-fade-in">
+            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-3 sm:mb-4 text-white drop-shadow-lg font-oughter">
               event.pk
             </h1>
-            <p className="text-lg md:text-xl text-white/90 font-medium">
+            <p className="text-base sm:text-lg md:text-xl text-white/90 font-medium px-4">
               Discover, book, create, and manage events with ease.
             </p>
           </div>
 
           {/* Filters */}
-          <div className="bg-card/95 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-12 border border-border">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-card/95 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 mb-8 sm:mb-12 border border-border">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Start Date</Label>
               <Popover>
@@ -164,10 +164,10 @@ const UserHome = () => {
 
           {/* Events Grid */}
           <div>
-            <h2 className="text-2xl font-bold mb-6 text-white drop-shadow-md">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white drop-shadow-md">
               {filteredEvents.length > 0 ? "Upcoming Events" : "No events found"}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredEvents.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
