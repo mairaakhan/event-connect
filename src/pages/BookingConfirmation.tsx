@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { TicketDownloadCard } from "@/components/ui/ticket-confirmation-card";
 import type { Booking } from "@/types/event";
+import { mockEvents } from "@/data/mockEvents";
 
 const BookingConfirmation = () => {
   const { bookingId } = useParams();
@@ -61,18 +63,22 @@ const BookingConfirmation = () => {
     return null;
   }
 
+  // Get event details
+  const allEvents = [...mockEvents, ...JSON.parse(localStorage.getItem("vendorEvents") || "[]")];
+  const event = allEvents.find(e => e.id === booking.eventId);
+
   const handleDownloadTicket = async () => {
     if (!ticketRef.current) return;
     
     try {
-      // Use html2canvas to capture the ticket
       const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(ticketRef.current, {
         backgroundColor: '#ffffff',
         scale: 2,
+        useCORS: true,
+        logging: false,
       });
       
-      // Convert to blob and download
       canvas.toBlob((blob) => {
         if (blob) {
           const url = URL.createObjectURL(blob);
@@ -83,7 +89,7 @@ const BookingConfirmation = () => {
           URL.revokeObjectURL(url);
           
           toast.success("Ticket downloaded!", {
-            description: "Your ticket with QR code has been saved."
+            description: "Your ticket has been saved."
           });
         }
       });
@@ -124,7 +130,6 @@ const BookingConfirmation = () => {
       return;
     }
 
-    // Update booking status to paid
     const updatedBooking = {
       ...booking!,
       status: 'paid' as const,
@@ -169,173 +174,190 @@ const BookingConfirmation = () => {
     <div className="min-h-screen bg-gradient-hero">
       <UserNavbar />
       
-      <div className="container py-12">
-        <Card className="max-w-2xl mx-auto">
-          <CardContent className="p-8 space-y-6" ref={ticketRef}>
-            {/* Status Header */}
-            <div className="flex justify-center">
-              <div className={`p-4 rounded-full ${
-                isPaid ? 'bg-green-100 dark:bg-green-900/20' : 
-                isCancelled ? 'bg-red-100 dark:bg-red-900/20' :
-                'bg-yellow-100 dark:bg-yellow-900/20'
-              }`}>
-                {isPaid ? (
-                  <CheckCircle2 className="h-16 w-16 text-green-600 dark:text-green-400" />
-                ) : isCancelled ? (
-                  <AlertCircle className="h-16 w-16 text-red-600 dark:text-red-400" />
-                ) : (
-                  <Clock className="h-16 w-16 text-yellow-600 dark:text-yellow-400" />
+      <div className="container px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="max-w-2xl mx-auto space-y-6">
+          {/* Status Card */}
+          <Card>
+            <CardContent className="p-6 sm:p-8 space-y-6">
+              {/* Status Header */}
+              <div className="flex justify-center">
+                <div className={`p-4 rounded-full ${
+                  isPaid ? 'bg-green-100 dark:bg-green-900/20' : 
+                  isCancelled ? 'bg-red-100 dark:bg-red-900/20' :
+                  'bg-yellow-100 dark:bg-yellow-900/20'
+                }`}>
+                  {isPaid ? (
+                    <CheckCircle2 className="h-12 w-12 sm:h-16 sm:w-16 text-green-600 dark:text-green-400" />
+                  ) : isCancelled ? (
+                    <AlertCircle className="h-12 w-12 sm:h-16 sm:w-16 text-red-600 dark:text-red-400" />
+                  ) : (
+                    <Clock className="h-12 w-12 sm:h-16 sm:w-16 text-yellow-600 dark:text-yellow-400" />
+                  )}
+                </div>
+              </div>
+
+              <div className="text-center">
+                <h1 className="text-xl sm:text-3xl font-bold mb-2">
+                  {isPaid ? '✅ Booking Confirmed & Paid!' :
+                   isCancelled ? '❌ Booking Cancelled' :
+                   '⏳ Booking Reserved - Awaiting Payment'}
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground">
+                  {isPaid ? 'Your ticket is ready! Download it below.' :
+                   isCancelled ? 'This booking has expired and been cancelled.' :
+                   'Complete payment within 24 hours to confirm your booking.'}
+                </p>
+                {isReserved && (
+                  <p className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mt-2">
+                    {getTimeRemaining()}
+                  </p>
                 )}
               </div>
-            </div>
 
-            <div className="text-center">
-              <h1 className="text-3xl font-bold mb-2">
-                {isPaid ? '✅ Booking Confirmed & Paid!' :
-                 isCancelled ? '❌ Booking Cancelled' :
-                 '⏳ Booking Reserved - Awaiting Payment'}
-              </h1>
-              <p className="text-muted-foreground">
-                {isPaid ? 'Your ticket is ready! Download it below.' :
-                 isCancelled ? 'This booking has expired and been cancelled.' :
-                 'Complete payment within 24 hours to confirm your booking.'}
-              </p>
-              {isReserved && (
-                <p className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mt-2">
-                  {getTimeRemaining()}
-                </p>
-              )}
-            </div>
+              <Separator />
 
-            <Separator />
-
-            <div className="text-left space-y-4">
-              <div>
-                <h2 className="text-xl font-bold mb-3">{booking.eventName}</h2>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Ticket ID:</span>
-                    <span className="font-mono font-semibold">{booking.id}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Booked On:</span>
-                    <span>{format(new Date(booking.createdAt), "PPP")}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Status:</span>
-                    <span className={`font-semibold capitalize ${
-                      isPaid ? 'text-green-600' : 
-                      isCancelled ? 'text-red-600' : 
-                      'text-yellow-600'
-                    }`}>
-                      {booking.status}
-                    </span>
-                  </div>
-                  {isReserved && (
+              <div className="text-left space-y-4">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold mb-3">{booking.eventName}</h2>
+                  <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Expires At:</span>
-                      <span className="text-red-600 font-semibold">
-                        {format(new Date(booking.expiresAt), "PPP p")}
+                      <span className="text-muted-foreground">Ticket ID:</span>
+                      <span className="font-mono font-semibold text-xs sm:text-sm">{booking.id}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Booked On:</span>
+                      <span>{format(new Date(booking.createdAt), "PPP")}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className={`font-semibold capitalize ${
+                        isPaid ? 'text-green-600' : 
+                        isCancelled ? 'text-red-600' : 
+                        'text-yellow-600'
+                      }`}>
+                        {booking.status}
                       </span>
                     </div>
-                  )}
-                  {isPaid && booking.paidBy && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Paid By:</span>
-                      <span>{booking.paidBy}</span>
+                    {isReserved && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Expires At:</span>
+                        <span className="text-red-600 font-semibold">
+                          {format(new Date(booking.expiresAt), "PPP p")}
+                        </span>
+                      </div>
+                    )}
+                    {isPaid && booking.paidBy && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Paid By:</span>
+                        <span>{booking.paidBy}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h3 className="font-semibold mb-2">Ticket Details</h3>
+                  <div className="space-y-2">
+                    {booking.items.map((item, index) => (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span>{item.categoryName} × {item.quantity}</span>
+                        <span>Rs. {(item.price * item.quantity).toFixed(0)}</span>
+                      </div>
+                    ))}
+                    {booking.discountApplied && booking.discountApplied > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount</span>
+                        <span>- Rs. {booking.discountApplied.toFixed(0)}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between font-bold text-lg">
+                      <span>Total</span>
+                      <span className="text-primary">Rs. {booking.totalAmount.toFixed(0)}</span>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
               <Separator />
 
-              <div>
-                <h3 className="font-semibold mb-2">Ticket Details</h3>
-                <div className="space-y-2">
-                  {booking.items.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span>{item.categoryName} × {item.quantity}</span>
-                      <span>Rs. {(item.price * item.quantity).toFixed(0)}</span>
-                    </div>
-                  ))}
-                  {booking.discountApplied && booking.discountApplied > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Discount</span>
-                      <span>- Rs. {booking.discountApplied.toFixed(0)}</span>
-                    </div>
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleDownloadTicket}
+                  disabled={!isPaid}
+                  className="w-full bg-gradient-accent hover:opacity-90"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isPaid ? 'Download Ticket' : '🔒 Download Ticket (Payment Required)'}
+                </Button>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="flex-1">
+                        <Share2 className="mr-2 h-4 w-4" />
+                        Share Payment Link
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleShare("whatsapp")}>
+                        WhatsApp
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare("email")}>
+                        Gmail / Email
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare("messenger")}>
+                        Messenger
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShare("copy")}>
+                        Copy Link
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {isReserved && (
+                    <Button 
+                      onClick={handlePayNow}
+                      className="flex-1"
+                      variant="default"
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Pay Now
+                    </Button>
                   )}
-                  <Separator />
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <span className="text-primary">Rs. {booking.totalAmount.toFixed(0)}</span>
-                  </div>
                 </div>
               </div>
-            </div>
 
-            <Separator />
-
-            {/* Action Buttons */}
-            <div className="space-y-3">
-              {/* Download Button - Only enabled if paid */}
               <Button 
-                onClick={handleDownloadTicket}
-                disabled={!isPaid}
-                className="w-full bg-gradient-accent hover:opacity-90"
+                variant="ghost" 
+                onClick={() => navigate("/")}
+                className="w-full"
               >
-                <Download className="mr-2 h-4 w-4" />
-                {isPaid ? 'Download Ticket' : '🔒 Download Ticket (Payment Required)'}
+                Back to Events
               </Button>
+            </CardContent>
+          </Card>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                {/* Share Button - Always enabled */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex-1">
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Share Payment Link
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleShare("whatsapp")}>
-                      WhatsApp
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleShare("email")}>
-                      Gmail / Email
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleShare("messenger")}>
-                      Messenger
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleShare("copy")}>
-                      Copy Link
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                {/* Pay Button - Only show if reserved */}
-                {isReserved && (
-                  <Button 
-                    onClick={handlePayNow}
-                    className="flex-1"
-                    variant="default"
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Pay Now
-                  </Button>
-                )}
-              </div>
+          {/* Hidden Ticket for Download - Only rendered when paid */}
+          {isPaid && (
+            <div className="fixed left-[-9999px] top-0">
+              <TicketDownloadCard
+                ref={ticketRef}
+                ticketId={booking.id}
+                eventName={booking.eventName}
+                eventDate={new Date(event?.startDate || booking.createdAt)}
+                eventVenue={event?.venue || "Venue"}
+                eventCity={event?.city || "City"}
+                items={booking.items}
+                totalAmount={booking.totalAmount}
+                paidBy={booking.paidBy}
+              />
             </div>
-
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate("/")}
-              className="w-full"
-            >
-              Back to Events
-            </Button>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
 
       {/* Payment Confirmation Dialog */}
