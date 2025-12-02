@@ -6,28 +6,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useVendorAuth } from "@/hooks/useVendorAuth";
+import { Loader2 } from "lucide-react";
 
 const VendorSignIn = () => {
   const navigate = useNavigate();
+  const { signIn } = useVendorAuth();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const vendors = JSON.parse(localStorage.getItem("vendors") || "[]");
-    const vendor = vendors.find(
-      (v: any) => v.email === formData.email && v.password === formData.password
-    );
-
-    if (vendor) {
-      localStorage.setItem("vendorAuth", JSON.stringify(vendor));
+    setIsLoading(true);
+    try {
+      await signIn(formData.email, formData.password);
       toast.success("Sign in successful!");
       navigate("/vendor/dashboard");
-    } else {
-      toast.error("Invalid credentials");
+    } catch (error: any) {
+      toast.error(error.message || "Invalid credentials");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,8 +78,16 @@ const VendorSignIn = () => {
               <Button
                 type="submit"
                 className="w-full bg-gradient-accent hover:opacity-90"
+                disabled={isLoading}
               >
-                Sign In
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">

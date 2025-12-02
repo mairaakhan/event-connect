@@ -1,10 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { UserNavbar } from "@/components/UserNavbar";
 import { EventCard } from "@/components/EventCard";
 import { Footer } from "@/components/Footer";
-import { mockEvents } from "@/data/mockEvents";
-import { Event } from "@/types/event";
-import { Input } from "@/components/ui/input";
+import { useEvents } from "@/hooks/useEvents";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -16,7 +14,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Search } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { GradientBackground } from "@/components/GradientBackground";
@@ -29,23 +27,17 @@ const UserHome = () => {
   const [endDate, setEndDate] = useState<Date>();
   const [category, setCategory] = useState("all");
   const [city, setCity] = useState("all");
-  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  
+  const { events, loading, error } = useEvents();
 
-  // Load events from localStorage and combine with mock events, filter out past events
-  useEffect(() => {
-    const vendorEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    const combined = [...mockEvents, ...vendorEvents];
-    
-    // Filter out past events
-    const now = new Date();
-    const upcomingEvents = combined.filter(event => new Date(event.startDate) > now);
-    
-    setAllEvents(upcomingEvents);
-  }, []);
-
+  // Filter out past events and apply filters
   const filteredEvents = useMemo(() => {
-    return allEvents.filter((event) => {
+    const now = new Date();
+    return events.filter((event) => {
       const eventDate = new Date(event.startDate);
+      const isPast = eventDate < now;
+      if (isPast) return false;
+      
       const matchesStartDate = !startDate || eventDate >= startDate;
       const matchesEndDate = !endDate || eventDate <= endDate;
       const matchesCategory = category === "all" || event.category === category;
@@ -53,7 +45,7 @@ const UserHome = () => {
 
       return matchesStartDate && matchesEndDate && matchesCategory && matchesCity;
     });
-  }, [allEvents, startDate, endDate, category, city]);
+  }, [events, startDate, endDate, category, city]);
 
   return (
     <div className="min-h-screen relative">
@@ -165,13 +157,24 @@ const UserHome = () => {
           {/* Events Grid */}
           <div>
             <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white drop-shadow-md">
-              {filteredEvents.length > 0 ? "Upcoming Events" : "No events found"}
+              {loading ? "Loading Events..." : filteredEvents.length > 0 ? "Upcoming Events" : "No events found"}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
+            
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-white" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 text-white">
+                <p>Error loading events. Please try again.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {filteredEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
         

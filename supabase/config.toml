@@ -1,1 +1,4 @@
 project_id = "ezieoeriwtvkewlstrho"
+
+[functions.scrape-ticketwala]
+verify_jwt = false

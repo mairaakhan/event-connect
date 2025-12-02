@@ -7,10 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useVendorAuth } from "@/hooks/useVendorAuth";
+import { Loader2 } from "lucide-react";
 
 const VendorRegister = () => {
   const navigate = useNavigate();
+  const { register } = useVendorAuth();
   const [accepted, setAccepted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     organizationName: "",
     contactPerson: "",
@@ -27,7 +31,7 @@ const VendorRegister = () => {
     paymentMethodType: "bank" as 'bank' | 'mobile-wallet' | 'both',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!accepted) {
@@ -35,41 +39,16 @@ const VendorRegister = () => {
       return;
     }
 
-    // Check if vendor already exists
-    const existingVendors = JSON.parse(localStorage.getItem("vendors") || "[]");
-    const vendorExists = existingVendors.some((v: any) => v.email === formData.email);
-
-    if (vendorExists) {
-      toast.error("Account already exists. Please sign in.");
-      return;
+    setIsLoading(true);
+    try {
+      await register(formData);
+      toast.success("Registration successful!");
+      navigate("/vendor/dashboard");
+    } catch (error: any) {
+      toast.error(error.message || "Registration failed");
+    } finally {
+      setIsLoading(false);
     }
-
-    // Save vendor
-    const newVendor = {
-      id: Date.now().toString(),
-      organizationName: formData.organizationName,
-      contactPerson: formData.contactPerson,
-      phone: formData.phone,
-      email: formData.email,
-      password: formData.password,
-      city: formData.city,
-      registrationDetails: formData.registrationDetails,
-      paymentDetails: {
-        accountHolderName: formData.accountHolderName,
-        bankName: formData.bankName,
-        accountNumber: formData.accountNumber,
-        iban: formData.iban,
-        mobileWallet: formData.mobileWallet,
-        paymentMethodType: formData.paymentMethodType,
-      },
-    };
-    
-    existingVendors.push(newVendor);
-    localStorage.setItem("vendors", JSON.stringify(existingVendors));
-    localStorage.setItem("vendorAuth", JSON.stringify(newVendor));
-
-    toast.success("Registration successful!");
-    navigate("/vendor/dashboard");
   };
 
   return (
@@ -266,8 +245,16 @@ const VendorRegister = () => {
               <Button
                 type="submit"
                 className="w-full bg-gradient-accent hover:opacity-90"
+                disabled={isLoading}
               >
-                Confirm Registration
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  "Confirm Registration"
+                )}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
