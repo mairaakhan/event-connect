@@ -14,7 +14,304 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      booking_items: {
+        Row: {
+          booking_id: string
+          category_id: string | null
+          category_name: string
+          id: string
+          price: number
+          quantity: number
+        }
+        Insert: {
+          booking_id: string
+          category_id?: string | null
+          category_name: string
+          id?: string
+          price: number
+          quantity: number
+        }
+        Update: {
+          booking_id?: string
+          category_id?: string | null
+          category_name?: string
+          id?: string
+          price?: number
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_items_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bookings: {
+        Row: {
+          created_at: string
+          discount_applied: number | null
+          event_id: string
+          event_name: string
+          expires_at: string
+          id: string
+          paid_by: string | null
+          payment_method: string | null
+          platform_commission: number
+          status: string | null
+          total_amount: number
+          vendor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discount_applied?: number | null
+          event_id: string
+          event_name: string
+          expires_at: string
+          id?: string
+          paid_by?: string | null
+          payment_method?: string | null
+          platform_commission?: number
+          status?: string | null
+          total_amount: number
+          vendor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discount_applied?: number | null
+          event_id?: string
+          event_name?: string
+          expires_at?: string
+          id?: string
+          paid_by?: string | null
+          payment_method?: string | null
+          platform_commission?: number
+          status?: string | null
+          total_amount?: number
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          category: string
+          city: string
+          created_at: string
+          description: string | null
+          early_bird_deadline: string | null
+          early_bird_discount: number | null
+          end_date: string | null
+          external_id: string | null
+          flash_sale_discount: number | null
+          flash_sale_end: string | null
+          flash_sale_start: string | null
+          group_booking_discount: number | null
+          group_booking_min_tickets: number | null
+          id: string
+          image: string | null
+          name: string
+          sold_tickets: number
+          source: string | null
+          start_date: string
+          status: string | null
+          ticket_price: number
+          tickets_live_from: string
+          total_tickets: number
+          updated_at: string
+          vendor_id: string | null
+          vendor_name: string | null
+          venue: string
+        }
+        Insert: {
+          category: string
+          city: string
+          created_at?: string
+          description?: string | null
+          early_bird_deadline?: string | null
+          early_bird_discount?: number | null
+          end_date?: string | null
+          external_id?: string | null
+          flash_sale_discount?: number | null
+          flash_sale_end?: string | null
+          flash_sale_start?: string | null
+          group_booking_discount?: number | null
+          group_booking_min_tickets?: number | null
+          id?: string
+          image?: string | null
+          name: string
+          sold_tickets?: number
+          source?: string | null
+          start_date: string
+          status?: string | null
+          ticket_price?: number
+          tickets_live_from: string
+          total_tickets?: number
+          updated_at?: string
+          vendor_id?: string | null
+          vendor_name?: string | null
+          venue: string
+        }
+        Update: {
+          category?: string
+          city?: string
+          created_at?: string
+          description?: string | null
+          early_bird_deadline?: string | null
+          early_bird_discount?: number | null
+          end_date?: string | null
+          external_id?: string | null
+          flash_sale_discount?: number | null
+          flash_sale_end?: string | null
+          flash_sale_start?: string | null
+          group_booking_discount?: number | null
+          group_booking_min_tickets?: number | null
+          id?: string
+          image?: string | null
+          name?: string
+          sold_tickets?: number
+          source?: string | null
+          start_date?: string
+          status?: string | null
+          ticket_price?: number
+          tickets_live_from?: string
+          total_tickets?: number
+          updated_at?: string
+          vendor_id?: string | null
+          vendor_name?: string | null
+          venue?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          name: string
+          price: number
+          quantity: number
+          sold: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          name: string
+          price: number
+          quantity?: number
+          sold?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          name?: string
+          price?: number
+          quantity?: number
+          sold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_categories_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          account_holder_name: string | null
+          account_number: string | null
+          bank_name: string | null
+          city: string
+          contact_person: string
+          created_at: string
+          email: string
+          iban: string | null
+          id: string
+          mobile_wallet: string | null
+          organization_name: string
+          password_hash: string
+          payment_method_type: string | null
+          phone: string
+          registration_details: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          city: string
+          contact_person: string
+          created_at?: string
+          email: string
+          iban?: string | null
+          id?: string
+          mobile_wallet?: string | null
+          organization_name: string
+          password_hash: string
+          payment_method_type?: string | null
+          phone: string
+          registration_details?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
+          city?: string
+          contact_person?: string
+          created_at?: string
+          email?: string
+          iban?: string | null
+          id?: string
+          mobile_wallet?: string | null
+          organization_name?: string
+          password_hash?: string
+          payment_method_type?: string | null
+          phone?: string
+          registration_details?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
