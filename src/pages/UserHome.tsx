@@ -34,12 +34,14 @@ const UserHome = () => {
   const filteredEvents = useMemo(() => {
     const now = new Date();
     return events.filter((event) => {
-      const eventDate = new Date(event.startDate);
-      const isPast = eventDate < now;
+      // Use end_date if available, otherwise start_date to determine if event is past
+      const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(event.startDate);
+      const isPast = eventEndDate < now;
       if (isPast) return false;
       
-      const matchesStartDate = !startDate || eventDate >= startDate;
-      const matchesEndDate = !endDate || eventDate <= endDate;
+      const eventStartDate = new Date(event.startDate);
+      const matchesStartDate = !startDate || eventStartDate >= startDate;
+      const matchesEndDate = !endDate || eventStartDate <= endDate;
       const matchesCategory = category === "all" || event.category === category;
       const matchesCity = city === "all" || event.city === city;
 
