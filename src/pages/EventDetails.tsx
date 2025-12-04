@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { mockEvents } from "@/data/mockEvents";
+import { supabase } from "@/integrations/supabase/client";
 import { UserNavbar } from "@/components/UserNavbar";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,15 +27,99 @@ const EventDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
 
-  // Load event from both mock events and localStorage
+  // Load event from Supabase
   useEffect(() => {
-    const vendorEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    const allEvents = [...mockEvents, ...vendorEvents];
-    const foundEvent = allEvents.find((e) => e.id === id);
-    setEvent(foundEvent || null);
+    const fetchEvent = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      try {
+        // Fetch event
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (eventError) throw eventError;
+        
+        if (!eventData) {
+          setEvent(null);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch ticket categories for this event
+        const { data: categories, error: catError } = await supabase
+          .from('ticket_categories')
+          .select('*')
+          .eq('event_id', id);
+
+        if (catError) throw catError;
+
+        // Transform to frontend Event type
+        const transformedEvent: Event = {
+          id: eventData.id,
+          name: eventData.name,
+          description: eventData.description || '',
+          startDate: eventData.start_date,
+          endDate: eventData.end_date || undefined,
+          category: eventData.category,
+          city: eventData.city,
+          venue: eventData.venue,
+          ticketPrice: eventData.ticket_price,
+          totalTickets: eventData.total_tickets,
+          soldTickets: eventData.sold_tickets,
+          ticketsLiveFrom: eventData.tickets_live_from,
+          image: eventData.image || '/placeholder.svg',
+          vendorId: eventData.vendor_id || undefined,
+          vendorName: eventData.vendor_name || undefined,
+          status: (eventData.status as 'live' | 'scheduled' | 'ended') || 'scheduled',
+          earlyBird: eventData.early_bird_discount ? {
+            discount: eventData.early_bird_discount,
+            deadline: eventData.early_bird_deadline || '',
+          } : undefined,
+          flashSale: eventData.flash_sale_discount ? {
+            discount: eventData.flash_sale_discount,
+            startDate: eventData.flash_sale_start || '',
+            endDate: eventData.flash_sale_end || '',
+          } : undefined,
+          groupBooking: eventData.group_booking_discount ? {
+            discount: eventData.group_booking_discount,
+            minTickets: eventData.group_booking_min_tickets || 5,
+          } : undefined,
+          ticketCategories: categories?.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            price: cat.price,
+            quantity: cat.quantity,
+            sold: cat.sold,
+            description: cat.description || '',
+          })) || [],
+        };
+
+        setEvent(transformedEvent);
+      } catch (error) {
+        console.error('Error fetching event:', error);
+        setEvent(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvent();
   }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!event) {
     return (

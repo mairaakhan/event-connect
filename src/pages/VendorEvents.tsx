@@ -12,9 +12,11 @@ import {
   BarChart3,
   Ticket,
   DollarSign,
+  Loader2,
 } from "lucide-react";
 import { format, differenceInDays, isPast } from "date-fns";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +33,7 @@ const VendorEvents = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState<any[]>([]);
   const [vendor, setVendor] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const auth = localStorage.getItem("vendorAuth");
@@ -45,52 +48,93 @@ const VendorEvents = () => {
     loadEvents(vendorData.id);
   }, [navigate]);
 
-  const loadEvents = (vendorId: string) => {
-    const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    const vendorEvents = allEvents.filter((e: any) => e.vendorId === vendorId);
-    
-    // Calculate real analytics from paid bookings for each event
-    const allBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-    
-    const eventsWithAnalytics = vendorEvents.map((event: any) => {
-      const eventBookings = allBookings.filter((b: any) => b.eventId === event.id && b.status === "paid");
-      
-      // Calculate total tickets sold and revenue from actual paid bookings
-      const soldTickets = eventBookings.reduce((sum: number, booking: any) => 
-        sum + booking.items.reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0
-      );
-      
-      const revenue = eventBookings.reduce((sum: number, booking: any) => sum + booking.totalAmount, 0);
-      const organizerEarnings = revenue * 0.92;
-      
-      // Update ticket categories with sold counts
-      let updatedEvent = { ...event, soldTickets, revenue, organizerEarnings };
-      
-      if (event.ticketCategories && event.ticketCategories.length > 0) {
-        const updatedCategories = event.ticketCategories.map((category: any) => {
-          const soldCount = eventBookings.reduce((sum: number, booking: any) => {
-            const categoryItem = booking.items.find((item: any) => item.categoryId === category.id);
-            return sum + (categoryItem?.quantity || 0);
-          }, 0);
-          
-          return { ...category, sold: soldCount };
-        });
+  const loadEvents = async (vendorId: string) => {
+    setLoading(true);
+    try {
+      // Fetch vendor's events from Supabase
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('vendor_id', vendorId)
+        .order('start_date', { ascending: false });
+
+      if (eventsError) throw eventsError;
+
+      // Fetch ticket categories for all events
+      const eventIds = eventsData?.map(e => e.id) || [];
+      const { data: categoriesData } = await supabase
+        .from('ticket_categories')
+        .select('*')
+        .in('event_id', eventIds);
+
+      // Fetch bookings for these events
+      const { data: bookingsData } = await supabase
+        .from('bookings')
+        .select('*, booking_items(*)')
+        .in('event_id', eventIds)
+        .eq('status', 'paid');
+
+      // Transform and calculate analytics
+      const eventsWithAnalytics = (eventsData || []).map(event => {
+        const eventBookings = bookingsData?.filter(b => b.event_id === event.id) || [];
         
-        updatedEvent = { ...updatedEvent, ticketCategories: updatedCategories };
-      }
-      
-      return updatedEvent;
-    });
-    
-    setEvents(eventsWithAnalytics);
+        const soldTickets = eventBookings.reduce((sum, booking) => 
+          sum + (booking.booking_items || []).reduce((itemSum: number, item: any) => itemSum + item.quantity, 0), 0
+        );
+        
+        const revenue = eventBookings.reduce((sum, booking) => sum + booking.total_amount, 0);
+        const organizerEarnings = revenue * 0.92;
+
+        const ticketCategories = categoriesData?.filter(c => c.event_id === event.id).map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          price: cat.price,
+          quantity: cat.quantity,
+          sold: cat.sold,
+          description: cat.description,
+        })) || [];
+
+        return {
+          id: event.id,
+          name: event.name,
+          startDate: event.start_date,
+          endDate: event.end_date,
+          city: event.city,
+          venue: event.venue,
+          image: event.image,
+          totalTickets: event.total_tickets,
+          ticketsLiveFrom: event.tickets_live_from,
+          soldTickets,
+          revenue,
+          organizerEarnings,
+          ticketCategories,
+        };
+      });
+
+      setEvents(eventsWithAnalytics);
+    } catch (error) {
+      console.error('Error loading events:', error);
+      toast.error('Failed to load events');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = (eventId: string) => {
-    const allEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    const updatedEvents = allEvents.filter((e: any) => e.id !== eventId);
-    localStorage.setItem("vendorEvents", JSON.stringify(updatedEvents));
-    loadEvents(vendor.id);
-    toast.success("Event deleted successfully");
+  const handleDelete = async (eventId: string) => {
+    try {
+      // Delete ticket categories first (due to foreign key)
+      await supabase.from('ticket_categories').delete().eq('event_id', eventId);
+      
+      // Delete event
+      const { error } = await supabase.from('events').delete().eq('id', eventId);
+      if (error) throw error;
+      
+      loadEvents(vendor.id);
+      toast.success("Event deleted successfully");
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      toast.error('Failed to delete event');
+    }
   };
 
   const getEventStatus = (event: any) => {
@@ -109,6 +153,14 @@ const VendorEvents = () => {
       return { label: `Will go live in ${daysUntilLive} days`, variant: "secondary" as const };
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-hero">

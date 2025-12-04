@@ -4,7 +4,7 @@ export interface TicketCategory {
   price: number;
   quantity: number;
   sold: number;
-  description: string;
+  description?: string;
 }
 
 export interface Event {
