@@ -14,9 +14,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Upload, X, Trash2, Plus } from "lucide-react";
+import { Upload, X, Trash2, Plus, Loader2 } from "lucide-react";
 import { TicketCategory } from "@/types/event";
+import { createEvent, updateEvent } from "@/hooks/useEvents";
+import { supabase } from "@/integrations/supabase/client";
 
 const categories = ["music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
 
@@ -28,6 +31,8 @@ const VendorEventForm = () => {
   const [vendor, setVendor] = useState<any>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
+  const [isFreeEvent, setIsFreeEvent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentCategory, setCurrentCategory] = useState({
     name: "",
     price: "",
@@ -43,6 +48,7 @@ const VendorEventForm = () => {
     city: "",
     venue: "",
     ticketsLiveFrom: "",
+    totalTickets: "", // For free events
     enableEarlyBird: false,
     earlyBirdDiscount: "",
     earlyBirdDeadline: "",
@@ -63,34 +69,65 @@ const VendorEventForm = () => {
     }
     setVendor(JSON.parse(auth));
 
-    if (isEdit) {
-      const events = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-      const event = events.find((e: any) => e.id === id);
-      if (event) {
+    const loadEvent = async () => {
+      if (isEdit && id) {
+        // Fetch event from Supabase
+        const { data: event, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error || !event) {
+          toast.error("Event not found");
+          navigate("/vendor/events");
+          return;
+        }
+
         setFormData({
           name: event.name,
-          description: event.description,
-          startDate: event.startDate.slice(0, 16),
-          endDate: event.endDate?.slice(0, 16) || "",
+          description: event.description || "",
+          startDate: event.start_date?.slice(0, 16) || "",
+          endDate: event.end_date?.slice(0, 16) || "",
           category: event.category,
           city: event.city,
           venue: event.venue,
-          ticketsLiveFrom: event.ticketsLiveFrom.slice(0, 16),
-          enableEarlyBird: !!event.earlyBird,
-          earlyBirdDiscount: event.earlyBird?.discount?.toString() || "",
-          earlyBirdDeadline: event.earlyBird?.deadline?.slice(0, 16) || "",
-          enableFlashSale: !!event.flashSale,
-          flashSaleStartDate: event.flashSale?.startDate?.slice(0, 16) || "",
-          flashSaleEndDate: event.flashSale?.endDate?.slice(0, 16) || "",
-          flashSaleDiscount: event.flashSale?.discount?.toString() || "",
-          enableGroupBooking: !!event.groupBooking,
-          groupDiscount: event.groupBooking?.discount?.toString() || "",
-          groupMinTickets: event.groupBooking?.minTickets?.toString() || "",
+          ticketsLiveFrom: event.tickets_live_from?.slice(0, 16) || "",
+          totalTickets: event.total_tickets?.toString() || "",
+          enableEarlyBird: !!event.early_bird_discount,
+          earlyBirdDiscount: event.early_bird_discount?.toString() || "",
+          earlyBirdDeadline: event.early_bird_deadline?.slice(0, 16) || "",
+          enableFlashSale: !!event.flash_sale_start,
+          flashSaleStartDate: event.flash_sale_start?.slice(0, 16) || "",
+          flashSaleEndDate: event.flash_sale_end?.slice(0, 16) || "",
+          flashSaleDiscount: event.flash_sale_discount?.toString() || "",
+          enableGroupBooking: !!event.group_booking_discount,
+          groupDiscount: event.group_booking_discount?.toString() || "",
+          groupMinTickets: event.group_booking_min_tickets?.toString() || "",
         });
         setImagePreview(event.image || "");
-        setTicketCategories(event.ticketCategories || []);
+        setIsFreeEvent(Number(event.ticket_price) === 0);
+
+        // Fetch ticket categories
+        const { data: categories } = await supabase
+          .from('ticket_categories')
+          .select('*')
+          .eq('event_id', id);
+
+        if (categories) {
+          setTicketCategories(categories.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            price: Number(cat.price),
+            quantity: cat.quantity,
+            sold: cat.sold,
+            description: cat.description || "",
+          })));
+        }
       }
-    }
+    };
+
+    loadEvent();
   }, [navigate, isEdit, id]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,67 +166,99 @@ const VendorEventForm = () => {
     toast.success("Ticket category removed");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!vendor) return;
 
-    if (ticketCategories.length === 0) {
-      toast.error("Please add at least one ticket category");
+    // For paid events, require at least one ticket category
+    if (!isFreeEvent && ticketCategories.length === 0) {
+      toast.error("Please add at least one ticket category or mark as free event");
       return;
     }
 
-    // Calculate total tickets and base price from categories
-    const totalTickets = ticketCategories.reduce((sum, cat) => sum + cat.quantity, 0);
-    const basePrice = Math.min(...ticketCategories.map(cat => cat.price));
+    setIsSubmitting(true);
 
-    const event = {
-      id: isEdit ? id : Date.now().toString(),
-      ...formData,
-      ticketPrice: basePrice,
-      totalTickets: totalTickets,
-      soldTickets: 0,
-      ticketCategories: ticketCategories,
-      vendorId: vendor.id,
-      vendorName: vendor.organizationName,
-      image: imagePreview || "",
-      status: new Date(formData.ticketsLiveFrom) > new Date() ? "scheduled" : "live",
-      startDate: new Date(formData.startDate).toISOString(),
-      endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
-      ticketsLiveFrom: new Date(formData.ticketsLiveFrom).toISOString(),
-      earlyBird: formData.enableEarlyBird
-        ? {
-            discount: parseFloat(formData.earlyBirdDiscount),
-            deadline: new Date(formData.earlyBirdDeadline).toISOString(),
-          }
-        : undefined,
-      flashSale: formData.enableFlashSale
-        ? {
-            startDate: new Date(formData.flashSaleStartDate).toISOString(),
-            endDate: new Date(formData.flashSaleEndDate).toISOString(),
-            discount: parseFloat(formData.flashSaleDiscount),
-          }
-        : undefined,
-      groupBooking: formData.enableGroupBooking
-        ? {
-            discount: parseFloat(formData.groupDiscount),
-            minTickets: parseInt(formData.groupMinTickets),
-          }
-        : undefined,
-    };
+    try {
+      // Calculate total tickets and base price from categories
+      const totalTickets = isFreeEvent 
+        ? parseInt(formData.totalTickets || "0") 
+        : ticketCategories.reduce((sum, cat) => sum + cat.quantity, 0);
+      const basePrice = isFreeEvent ? 0 : Math.min(...ticketCategories.map(cat => cat.price));
 
-    const events = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    
-    if (isEdit) {
-      const index = events.findIndex((e: any) => e.id === id);
-      events[index] = event;
-    } else {
-      events.push(event);
+      const eventData = {
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+        city: formData.city,
+        venue: formData.venue,
+        ticketPrice: basePrice,
+        totalTickets: totalTickets,
+        image: imagePreview || "",
+        status: new Date(formData.ticketsLiveFrom) > new Date() ? "scheduled" : "live",
+        startDate: new Date(formData.startDate).toISOString(),
+        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
+        ticketsLiveFrom: new Date(formData.ticketsLiveFrom).toISOString(),
+        earlyBird: formData.enableEarlyBird
+          ? {
+              discount: parseFloat(formData.earlyBirdDiscount),
+              deadline: new Date(formData.earlyBirdDeadline).toISOString(),
+            }
+          : undefined,
+        flashSale: formData.enableFlashSale
+          ? {
+              startDate: new Date(formData.flashSaleStartDate).toISOString(),
+              endDate: new Date(formData.flashSaleEndDate).toISOString(),
+              discount: parseFloat(formData.flashSaleDiscount),
+            }
+          : undefined,
+        groupBooking: formData.enableGroupBooking
+          ? {
+              discount: parseFloat(formData.groupDiscount),
+              minTickets: parseInt(formData.groupMinTickets),
+            }
+          : undefined,
+      };
+
+      let savedEvent;
+      if (isEdit && id) {
+        savedEvent = await updateEvent(id, eventData);
+        
+        // Delete existing ticket categories and re-insert
+        await supabase.from('ticket_categories').delete().eq('event_id', id);
+      } else {
+        savedEvent = await createEvent(eventData, vendor.id, vendor.organization_name);
+      }
+
+      // Save ticket categories to database (only for paid events)
+      if (!isFreeEvent && ticketCategories.length > 0 && savedEvent) {
+        const categoriesToInsert = ticketCategories.map(cat => ({
+          event_id: savedEvent.id,
+          name: cat.name,
+          price: cat.price,
+          quantity: cat.quantity,
+          description: cat.description || null,
+          sold: 0,
+        }));
+
+        const { error: catError } = await supabase
+          .from('ticket_categories')
+          .insert(categoriesToInsert);
+
+        if (catError) {
+          console.error('Error saving ticket categories:', catError);
+          toast.error("Event saved but ticket categories failed to save");
+        }
+      }
+
+      toast.success(isEdit ? "Event updated successfully!" : "Event created successfully!");
+      navigate("/vendor/events");
+    } catch (error: any) {
+      console.error('Error saving event:', error);
+      toast.error(error.message || "Failed to save event");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    localStorage.setItem("vendorEvents", JSON.stringify(events));
-    toast.success(isEdit ? "Event updated successfully!" : "Event created successfully!");
-    navigate("/vendor/events");
   };
 
   return (
@@ -347,7 +416,48 @@ const VendorEventForm = () => {
                 </div>
               </div>
 
-              {/* Ticket Categories */}
+              {/* Free Event Toggle */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="freeEvent" className="text-lg font-semibold">Free Event</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Toggle on if this event has no ticket system (free entry)
+                    </p>
+                  </div>
+                  <Switch
+                    id="freeEvent"
+                    checked={isFreeEvent}
+                    onCheckedChange={(checked) => {
+                      setIsFreeEvent(checked);
+                      if (checked) {
+                        setTicketCategories([]);
+                      }
+                    }}
+                  />
+                </div>
+
+                {/* Free Event - Total Capacity */}
+                {isFreeEvent && (
+                  <div className="space-y-2">
+                    <Label htmlFor="totalTickets">Total Capacity (Optional)</Label>
+                    <Input
+                      id="totalTickets"
+                      type="number"
+                      min="0"
+                      placeholder="Enter max attendees (leave empty for unlimited)"
+                      value={formData.totalTickets}
+                      onChange={(e) => setFormData({ ...formData, totalTickets: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Set the maximum number of attendees, or leave empty for unlimited
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Ticket Categories - Only for paid events */}
+              {!isFreeEvent && (
               <div className="space-y-4 border-t pt-6">
                 <h3 className="text-lg font-semibold">Ticket Categories *</h3>
                 
@@ -446,6 +556,7 @@ const VendorEventForm = () => {
                   </CardContent>
                 </Card>
               </div>
+              )}
 
               {/* Early Bird */}
               <div className="space-y-4 border-t pt-6">
@@ -607,8 +718,16 @@ const VendorEventForm = () => {
                 <Button
                   type="submit"
                   className="flex-1 bg-gradient-accent hover:opacity-90"
+                  disabled={isSubmitting}
                 >
-                  {isEdit ? "Update Event" : "Create Event"}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {isEdit ? "Updating..." : "Creating..."}
+                    </>
+                  ) : (
+                    isEdit ? "Update Event" : "Create Event"
+                  )}
                 </Button>
               </div>
             </form>
