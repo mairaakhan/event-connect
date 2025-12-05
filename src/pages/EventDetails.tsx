@@ -490,7 +490,7 @@ const EventDetails = () => {
                     {isFreeEvent ? "Register for Event" : "Book Tickets"}
                   </h3>
                   
-                  {/* Free Event - Simple Registration */}
+                  {/* Free Event - Registration Options */}
                   {isFreeEvent ? (
                     <div className="space-y-4">
                       <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
@@ -498,13 +498,13 @@ const EventDetails = () => {
                           <Gift className="h-5 w-5 text-emerald-600" />
                           <span className="font-semibold text-emerald-800 dark:text-emerald-200">Free Event</span>
                         </div>
-                        <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                          This event is free to attend. Click below to register your spot.
+                        <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300">
+                          This event is free to attend.
                         </p>
                       </div>
                       
                       <div className="border-t pt-4">
-                        <div className="flex justify-between text-sm mb-2">
+                        <div className="flex justify-between text-xs sm:text-sm mb-2">
                           <span>Available Spots</span>
                           <span className="font-semibold">
                             {event.totalTickets > 0 
@@ -513,27 +513,41 @@ const EventDetails = () => {
                             }
                           </span>
                         </div>
-                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                        <div className="flex justify-between font-bold text-base sm:text-lg pt-2 border-t">
                           <span>Price</span>
                           <span className="text-emerald-600">Free</span>
                         </div>
                       </div>
 
-                      <Button
-                        onClick={handleContinueToBook}
-                        className="w-full bg-emerald-500 hover:bg-emerald-600"
-                        disabled={!isLive || isBooking}
-                      >
-                        {isBooking ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Registering...
-                          </>
-                        ) : !isLive 
-                          ? `Registration opens in ${daysUntilLive} days` 
-                          : "Register Now"
-                        }
-                      </Button>
+                      <div className="space-y-3">
+                        <Button
+                          onClick={() => navigate(`/event/${event.id}/register`)}
+                          className="w-full bg-emerald-500 hover:bg-emerald-600 text-sm sm:text-base"
+                          disabled={!isLive}
+                        >
+                          {!isLive 
+                            ? `Registration opens in ${daysUntilLive} days` 
+                            : "Register with Details"
+                          }
+                        </Button>
+                        <Button
+                          onClick={handleContinueToBook}
+                          variant="outline"
+                          className="w-full text-sm sm:text-base"
+                          disabled={!isLive || isBooking}
+                        >
+                          {isBooking ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : "Quick Register (Skip Details)"
+                          }
+                        </Button>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
+                          Choose "Register with Details" to get a downloadable ticket with your name
+                        </p>
+                      </div>
                     </div>
                   ) : (
                     <>

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import UserHome from "./pages/UserHome";
 import EventDetails from "./pages/EventDetails";
 import BookingConfirmation from "./pages/BookingConfirmation";
+import FreeEventRegistration from "./pages/FreeEventRegistration";
 import VendorRegister from "./pages/VendorRegister";
 import VendorSignIn from "./pages/VendorSignIn";
 import VendorDashboard from "./pages/VendorDashboard";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/" element={<UserHome />} />
           <Route path="/explore" element={<UserHome />} />
           <Route path="/event/:id" element={<EventDetails />} />
+          <Route path="/event/:id/register" element={<FreeEventRegistration />} />
           <Route path="/booking-confirmation/:bookingId" element={<BookingConfirmation />} />
           <Route path="/vendor/register" element={<VendorRegister />} />
           <Route path="/vendor/signin" element={<VendorSignIn />} />

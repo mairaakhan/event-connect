@@ -116,6 +116,41 @@ export type Database = {
           },
         ]
       }
+      event_schedules: {
+        Row: {
+          created_at: string
+          day_date: string
+          end_time: string
+          event_id: string
+          id: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_date: string
+          end_time: string
+          event_id: string
+          id?: string
+          start_time: string
+        }
+        Update: {
+          created_at?: string
+          day_date?: string
+          end_time?: string
+          event_id?: string
+          id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_schedules_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           category: string
@@ -134,6 +169,7 @@ export type Database = {
           id: string
           image: string | null
           name: string
+          requires_registration: boolean | null
           sold_tickets: number
           source: string | null
           start_date: string
@@ -163,6 +199,7 @@ export type Database = {
           id?: string
           image?: string | null
           name: string
+          requires_registration?: boolean | null
           sold_tickets?: number
           source?: string | null
           start_date: string
@@ -192,6 +229,7 @@ export type Database = {
           id?: string
           image?: string | null
           name?: string
+          requires_registration?: boolean | null
           sold_tickets?: number
           source?: string | null
           start_date?: string
