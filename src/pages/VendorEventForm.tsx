@@ -33,6 +33,18 @@ const VendorEventForm = () => {
   const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   const [isFreeEvent, setIsFreeEvent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMultiDay, setIsMultiDay] = useState(false);
+  const [eventSchedules, setEventSchedules] = useState<Array<{
+    id: string;
+    dayDate: string;
+    startTime: string;
+    endTime: string;
+  }>>([]);
+  const [currentSchedule, setCurrentSchedule] = useState({
+    dayDate: "",
+    startTime: "",
+    endTime: "",
+  });
   const [currentCategory, setCurrentCategory] = useState({
     name: "",
     price: "",
@@ -48,7 +60,8 @@ const VendorEventForm = () => {
     city: "",
     venue: "",
     ticketsLiveFrom: "",
-    totalTickets: "", // For free events
+    totalTickets: "",
+    requiresRegistration: false,
     enableEarlyBird: false,
     earlyBirdDiscount: "",
     earlyBirdDeadline: "",
@@ -94,6 +107,7 @@ const VendorEventForm = () => {
           venue: event.venue,
           ticketsLiveFrom: event.tickets_live_from?.slice(0, 16) || "",
           totalTickets: event.total_tickets?.toString() || "",
+          requiresRegistration: (event as any).requires_registration || false,
           enableEarlyBird: !!event.early_bird_discount,
           earlyBirdDiscount: event.early_bird_discount?.toString() || "",
           earlyBirdDeadline: event.early_bird_deadline?.slice(0, 16) || "",
@@ -122,6 +136,22 @@ const VendorEventForm = () => {
             quantity: cat.quantity,
             sold: cat.sold,
             description: cat.description || "",
+          })));
+        }
+
+        // Fetch event schedules
+        const { data: schedules } = await supabase
+          .from('event_schedules')
+          .select('*')
+          .eq('event_id', id);
+
+        if (schedules && schedules.length > 0) {
+          setIsMultiDay(true);
+          setEventSchedules(schedules.map(s => ({
+            id: s.id,
+            dayDate: s.day_date,
+            startTime: s.start_time,
+            endTime: s.end_time,
           })));
         }
       }
@@ -166,21 +196,38 @@ const VendorEventForm = () => {
     toast.success("Ticket category removed");
   };
 
+  const handleAddSchedule = () => {
+    if (!currentSchedule.dayDate || !currentSchedule.startTime || !currentSchedule.endTime) {
+      toast.error("Please fill in all schedule fields");
+      return;
+    }
+    setEventSchedules([...eventSchedules, { id: Date.now().toString(), ...currentSchedule }]);
+    setCurrentSchedule({ dayDate: "", startTime: "", endTime: "" });
+    toast.success("Day schedule added!");
+  };
+
+  const handleDeleteSchedule = (scheduleId: string) => {
+    setEventSchedules(eventSchedules.filter(s => s.id !== scheduleId));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!vendor) return;
 
-    // For paid events, require at least one ticket category
     if (!isFreeEvent && ticketCategories.length === 0) {
       toast.error("Please add at least one ticket category or mark as free event");
+      return;
+    }
+
+    if (isMultiDay && eventSchedules.length === 0) {
+      toast.error("Please add at least one day schedule for multi-day events");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Calculate total tickets and base price from categories
       const totalTickets = isFreeEvent 
         ? parseInt(formData.totalTickets || "0") 
         : ticketCategories.reduce((sum, cat) => sum + cat.quantity, 0);
@@ -199,6 +246,7 @@ const VendorEventForm = () => {
         startDate: new Date(formData.startDate).toISOString(),
         endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
         ticketsLiveFrom: new Date(formData.ticketsLiveFrom).toISOString(),
+        requiresRegistration: formData.requiresRegistration,
         earlyBird: formData.enableEarlyBird
           ? {
               discount: parseFloat(formData.earlyBirdDiscount),
@@ -223,14 +271,12 @@ const VendorEventForm = () => {
       let savedEvent;
       if (isEdit && id) {
         savedEvent = await updateEvent(id, eventData);
-        
-        // Delete existing ticket categories and re-insert
         await supabase.from('ticket_categories').delete().eq('event_id', id);
+        await supabase.from('event_schedules').delete().eq('event_id', id);
       } else {
         savedEvent = await createEvent(eventData, vendor.id, vendor.organization_name);
       }
 
-      // Save ticket categories to database (only for paid events)
       if (!isFreeEvent && ticketCategories.length > 0 && savedEvent) {
         const categoriesToInsert = ticketCategories.map(cat => ({
           event_id: savedEvent.id,
@@ -248,6 +294,24 @@ const VendorEventForm = () => {
         if (catError) {
           console.error('Error saving ticket categories:', catError);
           toast.error("Event saved but ticket categories failed to save");
+        }
+      }
+
+      // Save event schedules
+      if (isMultiDay && eventSchedules.length > 0 && savedEvent) {
+        const schedulesToInsert = eventSchedules.map(s => ({
+          event_id: savedEvent.id,
+          day_date: s.dayDate,
+          start_time: s.startTime,
+          end_time: s.endTime,
+        }));
+
+        const { error: schedError } = await supabase
+          .from('event_schedules')
+          .insert(schedulesToInsert);
+
+        if (schedError) {
+          console.error('Error saving schedules:', schedError);
         }
       }
 
@@ -376,6 +440,64 @@ const VendorEventForm = () => {
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Multi-Day Scheduling */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base sm:text-lg font-semibold">Multi-Day Event</Label>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Enable to set different timings for each day
+                    </p>
+                  </div>
+                  <Switch checked={isMultiDay} onCheckedChange={setIsMultiDay} />
+                </div>
+
+                {isMultiDay && (
+                  <div className="space-y-4">
+                    {eventSchedules.length > 0 && (
+                      <div className="space-y-2">
+                        {eventSchedules.map((schedule) => (
+                          <Card key={schedule.id}>
+                            <CardContent className="p-3 flex items-center justify-between">
+                              <div className="text-sm">
+                                <span className="font-medium">{schedule.dayDate}</span>
+                                <span className="text-muted-foreground ml-2">
+                                  {schedule.startTime} - {schedule.endTime}
+                                </span>
+                              </div>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteSchedule(schedule.id)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                    <Card className="border-dashed">
+                      <CardContent className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-2">
+                            <Label>Date</Label>
+                            <Input type="date" value={currentSchedule.dayDate} onChange={(e) => setCurrentSchedule({...currentSchedule, dayDate: e.target.value})} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Start Time</Label>
+                            <Input type="time" value={currentSchedule.startTime} onChange={(e) => setCurrentSchedule({...currentSchedule, startTime: e.target.value})} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>End Time</Label>
+                            <Input type="time" value={currentSchedule.endTime} onChange={(e) => setCurrentSchedule({...currentSchedule, endTime: e.target.value})} />
+                          </div>
+                        </div>
+                        <Button type="button" variant="outline" onClick={handleAddSchedule} className="w-full">
+                          <Plus className="h-4 w-4 mr-2" /> Add Day Schedule
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
 
               {/* Image Upload */}
