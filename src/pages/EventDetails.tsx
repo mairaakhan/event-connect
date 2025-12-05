@@ -18,6 +18,7 @@ import {
   Percent,
   Plus,
   Minus,
+  Gift,
 } from "lucide-react";
 import { format, differenceInDays, isPast, isFuture } from "date-fns";
 import { toast } from "sonner";
@@ -202,12 +203,15 @@ const EventDetails = () => {
   const { total, discount } = calculateTotal();
   const totalTicketsSelected = Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0);
 
+  const [isBooking, setIsBooking] = useState(false);
+  const isFreeEvent = event.ticketPrice === 0 && (!hasCategories || event.ticketCategories!.every(c => c.price === 0));
+
   const handleContinueToBook = () => {
     if (!isLive) {
       toast.error("Tickets are not live yet!");
       return;
     }
-    if (totalTicketsSelected === 0) {
+    if (!isFreeEvent && totalTicketsSelected === 0) {
       toast.error("Please select at least one ticket");
       return;
     }
@@ -216,81 +220,109 @@ const EventDetails = () => {
     handleConfirmBooking();
   };
 
-  const handleConfirmBooking = () => {
-    // Create booking items from selected tickets
-    const bookingItems: BookingItem[] = [];
+  const handleConfirmBooking = async () => {
+    setIsBooking(true);
     
-    if (hasCategories) {
-      Object.entries(selectedTickets).forEach(([categoryId, quantity]) => {
-        const category = event.ticketCategories!.find(c => c.id === categoryId);
-        if (category && quantity > 0) {
+    try {
+      // Create booking items from selected tickets
+      const bookingItems: BookingItem[] = [];
+      
+      if (hasCategories) {
+        Object.entries(selectedTickets).forEach(([categoryId, quantity]) => {
+          const category = event.ticketCategories!.find(c => c.id === categoryId);
+          if (category && quantity > 0) {
+            bookingItems.push({
+              categoryId,
+              categoryName: category.name,
+              quantity,
+              price: category.price,
+            });
+          }
+        });
+      } else if (!isFreeEvent) {
+        // Handle events without categories (general admission)
+        const quantity = selectedTickets['general'] || 0;
+        if (quantity > 0) {
           bookingItems.push({
-            categoryId,
-            categoryName: category.name,
+            categoryId: 'general',
+            categoryName: 'General Admission',
             quantity,
-            price: category.price,
+            price: event.ticketPrice,
           });
         }
-      });
-    } else {
-      // Handle events without categories (general admission)
-      const quantity = selectedTickets['general'] || 0;
-      if (quantity > 0) {
-        bookingItems.push({
-          categoryId: 'general',
-          categoryName: 'General Admission',
-          quantity,
-          price: event.ticketPrice,
-        });
       }
-    }
 
-    // Create booking object
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
-    const platformCommission = total * 0.08; // 8% platform commission
-    
-    const booking: Booking = {
-      id: `BK${Date.now()}`,
-      eventId: event.id,
-      eventName: event.name,
-      items: bookingItems,
-      totalAmount: total,
-      discountApplied: discount,
-      paymentMethod: "easypaisa", // Default payment method
-      status: "reserved", // Start as reserved, waiting for payment
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      vendorId: event.vendorId,
-      platformCommission,
-    };
+      // Create booking object
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+      const platformCommission = isFreeEvent ? 0 : total * 0.08; // 8% platform commission (0 for free events)
 
-    // Save booking to localStorage
-    const bookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-    bookings.push(booking);
-    localStorage.setItem("bookings", JSON.stringify(bookings));
+      // Save booking to Supabase
+      const { data: bookingData, error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          event_id: event.id,
+          event_name: event.name,
+          total_amount: total,
+          discount_applied: discount,
+          payment_method: isFreeEvent ? "free" : "easypaisa",
+          status: isFreeEvent ? "paid" : "reserved", // Free events are immediately "paid"
+          expires_at: expiresAt.toISOString(),
+          vendor_id: event.vendorId || null,
+          platform_commission: platformCommission,
+        })
+        .select()
+        .single();
 
-    // Update event ticket quantities
-    const vendorEvents = JSON.parse(localStorage.getItem("vendorEvents") || "[]");
-    const eventIndex = vendorEvents.findIndex((e: Event) => e.id === event.id);
-    
-    if (eventIndex !== -1) {
-      bookingItems.forEach(item => {
-        const categoryIndex = vendorEvents[eventIndex].ticketCategories?.findIndex(
-          (c: TicketCategory) => c.id === item.categoryId
-        );
-        if (categoryIndex !== -1) {
-          vendorEvents[eventIndex].ticketCategories[categoryIndex].sold += item.quantity;
+      if (bookingError) throw bookingError;
+
+      // Save booking items to Supabase
+      if (bookingItems.length > 0) {
+        const itemsToInsert = bookingItems.map(item => ({
+          booking_id: bookingData.id,
+          category_id: item.categoryId === 'general' ? null : item.categoryId,
+          category_name: item.categoryName,
+          quantity: item.quantity,
+          price: item.price,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('booking_items')
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Update ticket category sold counts in database
+      if (hasCategories) {
+        for (const item of bookingItems) {
+          if (item.categoryId !== 'general') {
+            await supabase
+              .from('ticket_categories')
+              .update({ sold: (event.ticketCategories!.find(c => c.id === item.categoryId)?.sold || 0) + item.quantity })
+              .eq('id', item.categoryId);
+          }
         }
-      });
-      localStorage.setItem("vendorEvents", JSON.stringify(vendorEvents));
-    }
+      }
 
-    toast.success("Booking Confirmed!", {
-      description: "Redirecting to confirmation page..."
-    });
-    
-    setTimeout(() => navigate(`/booking-confirmation/${booking.id}`), 1000);
+      // Update event sold_tickets count
+      const totalQuantity = bookingItems.reduce((sum, item) => sum + item.quantity, 0);
+      await supabase
+        .from('events')
+        .update({ sold_tickets: event.soldTickets + totalQuantity })
+        .eq('id', event.id);
+
+      toast.success(isFreeEvent ? "Registration Confirmed!" : "Booking Confirmed!", {
+        description: "Redirecting to confirmation page..."
+      });
+      
+      setTimeout(() => navigate(`/booking-confirmation/${bookingData.id}`), 1000);
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast.error("Failed to create booking. Please try again.");
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   return (
@@ -317,6 +349,12 @@ const EventDetails = () => {
                 className="w-full h-full object-cover"
               />
               <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+                {isFreeEvent && (
+                  <Badge className="bg-emerald-500 text-white border-0">
+                    <Gift className="w-3 h-3 mr-1" />
+                    Free Event
+                  </Badge>
+                )}
                 {isLive ? (
                   <Badge className="bg-green-500 text-white border-0">Tickets are Live</Badge>
                 ) : (
@@ -324,7 +362,7 @@ const EventDetails = () => {
                     Live in {daysUntilLive} days
                   </Badge>
                 )}
-                {hasFlashSale && (
+                {hasFlashSale && !isFreeEvent && (
                   <Badge className="bg-gradient-accent text-white border-0">
                     <Zap className="w-3 h-3 mr-1" />
                     Flash Sale - {event.flashSale!.discount}% OFF
@@ -346,10 +384,18 @@ const EventDetails = () => {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Starting from</p>
-                    <p className="text-3xl font-bold text-primary">
-                      Rs. {hasCategories ? Math.min(...event.ticketCategories!.map(c => c.price)) : event.ticketPrice}
-                    </p>
+                    {isFreeEvent ? (
+                      <Badge className="bg-emerald-500 text-white border-0 text-base px-3 py-1">
+                        Free
+                      </Badge>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">Starting from</p>
+                        <p className="text-3xl font-bold text-primary">
+                          Rs. {hasCategories ? Math.min(...event.ticketCategories!.map(c => c.price)) : event.ticketPrice}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -406,7 +452,7 @@ const EventDetails = () => {
                   <p className="text-muted-foreground leading-relaxed">{event.description}</p>
                 </div>
 
-                {(event.earlyBird || event.groupBooking) && (
+                {!isFreeEvent && (event.earlyBird || event.groupBooking) && (
                   <div className="border-t pt-6 mt-6">
                     <h2 className="text-xl font-bold mb-3">Special Offers</h2>
                     <div className="space-y-2">
@@ -440,169 +486,225 @@ const EventDetails = () => {
             <Card className="sticky top-20">
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  <h3 className="text-xl font-bold">Book Tickets</h3>
+                  <h3 className="text-xl font-bold">
+                    {isFreeEvent ? "Register for Event" : "Book Tickets"}
+                  </h3>
                   
-                  {/* Ticket Categories Selection with +/- buttons */}
-                  {hasCategories ? (
-                    <div className="space-y-3">
-                      <Label>Select Tickets</Label>
-                      {event.ticketCategories!.map((category) => {
-                        const available = category.quantity - category.sold;
-                        const isSoldOut = available <= 0;
-                        const selected = selectedTickets[category.id] || 0;
-                        
-                        return (
-                          <Card 
-                            key={category.id}
-                            className={`${isSoldOut ? 'opacity-50' : ''}`}
-                          >
+                  {/* Free Event - Simple Registration */}
+                  {isFreeEvent ? (
+                    <div className="space-y-4">
+                      <div className="p-4 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Gift className="h-5 w-5 text-emerald-600" />
+                          <span className="font-semibold text-emerald-800 dark:text-emerald-200">Free Event</span>
+                        </div>
+                        <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                          This event is free to attend. Click below to register your spot.
+                        </p>
+                      </div>
+                      
+                      <div className="border-t pt-4">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Available Spots</span>
+                          <span className="font-semibold">
+                            {event.totalTickets > 0 
+                              ? `${event.totalTickets - event.soldTickets} of ${event.totalTickets}`
+                              : 'Unlimited'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                          <span>Price</span>
+                          <span className="text-emerald-600">Free</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleContinueToBook}
+                        className="w-full bg-emerald-500 hover:bg-emerald-600"
+                        disabled={!isLive || isBooking}
+                      >
+                        {isBooking ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Registering...
+                          </>
+                        ) : !isLive 
+                          ? `Registration opens in ${daysUntilLive} days` 
+                          : "Register Now"
+                        }
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Ticket Categories Selection with +/- buttons */}
+                      {hasCategories ? (
+                        <div className="space-y-3">
+                          <Label>Select Tickets</Label>
+                          {event.ticketCategories!.map((category) => {
+                            const available = category.quantity - category.sold;
+                            const isSoldOut = available <= 0;
+                            const selected = selectedTickets[category.id] || 0;
+                            
+                            return (
+                              <Card 
+                                key={category.id}
+                                className={`${isSoldOut ? 'opacity-50' : ''}`}
+                              >
+                                <CardContent className="p-4">
+                                  <div className="space-y-3">
+                                    <div className="flex justify-between items-start">
+                                      <div className="flex-1">
+                                        <p className="font-semibold">{category.name}</p>
+                                        {category.description && (
+                                          <p className="text-xs text-muted-foreground mt-1">
+                                            {category.description}
+                                          </p>
+                                        )}
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {isSoldOut ? 'Sold Out' : `${available} available`}
+                                        </p>
+                                      </div>
+                                      <p className="font-bold text-primary">Rs. {category.price}</p>
+                                    </div>
+                                    
+                                    {!isSoldOut && (
+                                      <div className="flex items-center justify-center gap-3">
+                                        <Button
+                                          variant="outline"
+                                          size="icon"
+                                          onClick={() => updateTicketCount(category.id, -1)}
+                                          disabled={selected === 0}
+                                        >
+                                          <Minus className="h-4 w-4" />
+                                        </Button>
+                                        <span className="font-bold text-lg min-w-[3rem] text-center">
+                                          {selected}
+                                        </span>
+                                        <Button
+                                          variant="outline"
+                                          size="icon"
+                                          onClick={() => updateTicketCount(category.id, 1)}
+                                          disabled={selected >= available}
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <Label>Number of Tickets</Label>
+                          <Card>
                             <CardContent className="p-4">
                               <div className="space-y-3">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <p className="font-semibold">{category.name}</p>
-                                    {category.description && (
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {category.description}
-                                      </p>
-                                    )}
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <p className="font-semibold">General Admission</p>
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      {isSoldOut ? 'Sold Out' : `${available} available`}
+                                      {availableTickets} available
                                     </p>
                                   </div>
-                                  <p className="font-bold text-primary">Rs. {category.price}</p>
+                                  <p className="font-bold text-primary">Rs. {event.ticketPrice}</p>
                                 </div>
                                 
-                                {!isSoldOut && (
-                                  <div className="flex items-center justify-center gap-3">
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={() => updateTicketCount(category.id, -1)}
-                                      disabled={selected === 0}
-                                    >
-                                      <Minus className="h-4 w-4" />
-                                    </Button>
-                                    <span className="font-bold text-lg min-w-[3rem] text-center">
-                                      {selected}
-                                    </span>
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      onClick={() => updateTicketCount(category.id, 1)}
-                                      disabled={selected >= available}
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                )}
+                                <div className="flex items-center justify-center gap-3">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      const current = selectedTickets['general'] || 0;
+                                      if (current > 0) {
+                                        setSelectedTickets({ general: current - 1 });
+                                      }
+                                    }}
+                                    disabled={!selectedTickets['general'] || selectedTickets['general'] === 0}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="font-bold text-lg min-w-[3rem] text-center">
+                                    {selectedTickets['general'] || 0}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      const current = selectedTickets['general'] || 0;
+                                      if (current < availableTickets) {
+                                        setSelectedTickets({ general: current + 1 });
+                                      }
+                                    }}
+                                    disabled={(selectedTickets['general'] || 0) >= availableTickets}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <Label>Number of Tickets</Label>
-                      <Card>
-                        <CardContent className="p-4">
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center">
-                              <div>
-                                <p className="font-semibold">General Admission</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {availableTickets} available
-                                </p>
-                              </div>
-                              <p className="font-bold text-primary">Rs. {event.ticketPrice}</p>
-                            </div>
-                            
-                            <div className="flex items-center justify-center gap-3">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  const current = selectedTickets['general'] || 0;
-                                  if (current > 0) {
-                                    setSelectedTickets({ general: current - 1 });
-                                  }
-                                }}
-                                disabled={!selectedTickets['general'] || selectedTickets['general'] === 0}
-                              >
-                                <Minus className="h-4 w-4" />
-                              </Button>
-                              <span className="font-bold text-lg min-w-[3rem] text-center">
-                                {selectedTickets['general'] || 0}
-                              </span>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => {
-                                  const current = selectedTickets['general'] || 0;
-                                  if (current < availableTickets) {
-                                    setSelectedTickets({ general: current + 1 });
-                                  }
-                                }}
-                                disabled={(selectedTickets['general'] || 0) >= availableTickets}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
-
-                  <div className="border-t pt-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Total Tickets</span>
-                      <span>{totalTicketsSelected}</span>
-                    </div>
-                    {hasCategories ? (
-                      Object.entries(selectedTickets).map(([categoryId, quantity]) => {
-                        const category = event.ticketCategories!.find(c => c.id === categoryId);
-                        if (!category || quantity === 0) return null;
-                        return (
-                          <div key={categoryId} className="flex justify-between text-sm text-muted-foreground">
-                            <span>{category.name} × {quantity}</span>
-                            <span>Rs. {(category.price * quantity).toFixed(0)}</span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      selectedTickets['general'] > 0 && (
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>General Admission × {selectedTickets['general']}</span>
-                          <span>Rs. {(event.ticketPrice * selectedTickets['general']).toFixed(0)}</span>
                         </div>
-                      )
-                    )}
-                    {discount > 0 && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Discount</span>
-                        <span>- Rs. {discount.toFixed(0)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                      <span>Total</span>
-                      <span className="text-primary">Rs. {total.toFixed(0)}</span>
-                    </div>
-                  </div>
+                      )}
 
-                  <Button
-                    onClick={handleContinueToBook}
-                    className="w-full bg-gradient-accent hover:opacity-90"
-                    disabled={!isLive}
-                  >
-                    {!isLive 
-                      ? `Live in ${daysUntilLive} days` 
-                      : totalTicketsSelected === 0 
-                      ? "Select Tickets First"
-                      : "Continue to Book"
-                    }
-                  </Button>
+                      <div className="border-t pt-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Total Tickets</span>
+                          <span>{totalTicketsSelected}</span>
+                        </div>
+                        {hasCategories ? (
+                          Object.entries(selectedTickets).map(([categoryId, quantity]) => {
+                            const category = event.ticketCategories!.find(c => c.id === categoryId);
+                            if (!category || quantity === 0) return null;
+                            return (
+                              <div key={categoryId} className="flex justify-between text-sm text-muted-foreground">
+                                <span>{category.name} × {quantity}</span>
+                                <span>Rs. {(category.price * quantity).toFixed(0)}</span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          selectedTickets['general'] > 0 && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>General Admission × {selectedTickets['general']}</span>
+                              <span>Rs. {(event.ticketPrice * selectedTickets['general']).toFixed(0)}</span>
+                            </div>
+                          )
+                        )}
+                        {discount > 0 && (
+                          <div className="flex justify-between text-sm text-green-600">
+                            <span>Discount</span>
+                            <span>- Rs. {discount.toFixed(0)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                          <span>Total</span>
+                          <span className="text-primary">Rs. {total.toFixed(0)}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleContinueToBook}
+                        className="w-full bg-gradient-accent hover:opacity-90"
+                        disabled={!isLive || isBooking}
+                      >
+                        {isBooking ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Booking...
+                          </>
+                        ) : !isLive 
+                          ? `Live in ${daysUntilLive} days` 
+                          : totalTicketsSelected === 0 
+                          ? "Select Tickets First"
+                          : "Continue to Book"
+                        }
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
