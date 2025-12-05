@@ -1,7 +1,7 @@
 import { Event } from "@/types/event";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Calendar, MapPin, Users, Zap } from "lucide-react";
+import { Calendar, MapPin, Users, Zap, Gift } from "lucide-react";
 import { format, differenceInDays, isPast, isFuture } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +22,7 @@ export const EventCard = ({ event }: EventCardProps) => {
     isPast(new Date(event.flashSale.startDate)) &&
     !isExpired;
 
+  const isFreeEvent = event.ticketPrice === 0;
   const availability = ((event.totalTickets - event.soldTickets) / event.totalTickets) * 100;
 
   return (
@@ -36,6 +37,12 @@ export const EventCard = ({ event }: EventCardProps) => {
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
         />
         <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex gap-1 sm:gap-2 flex-wrap">
+          {isFreeEvent && (
+            <Badge className="bg-emerald-500 text-white border-0 text-xs">
+              <Gift className="w-3 h-3 mr-1" />
+              Free Event
+            </Badge>
+          )}
           {isExpired ? (
             <Badge className="bg-destructive text-destructive-foreground border-0 text-xs">Tickets Expired</Badge>
           ) : isLive ? (
@@ -45,7 +52,7 @@ export const EventCard = ({ event }: EventCardProps) => {
               Live in {daysUntilLive} days
             </Badge>
           )}
-          {hasFlashSale && (
+          {hasFlashSale && !isFreeEvent && (
             <Badge className="bg-gradient-accent text-white border-0 animate-pulse text-xs">
               <Zap className="w-3 h-3 mr-1" />
               Flash Sale
@@ -80,7 +87,9 @@ export const EventCard = ({ event }: EventCardProps) => {
                 {availability > 20 ? "Available" : "Limited"} ({event.totalTickets - event.soldTickets} left)
               </span>
             </div>
-            <span className="font-bold text-primary text-sm sm:text-lg">Rs. {event.ticketPrice}</span>
+            <span className="font-bold text-primary text-sm sm:text-lg">
+              {isFreeEvent ? "Free" : `Rs. ${event.ticketPrice}`}
+            </span>
           </div>
         </div>
       </CardContent>

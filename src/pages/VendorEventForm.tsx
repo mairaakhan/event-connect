@@ -558,6 +558,9 @@ const VendorEventForm = () => {
               </div>
               )}
 
+              {/* Promotional Options - Only for paid events */}
+              {!isFreeEvent && (
+              <>
               {/* Early Bird */}
               <div className="space-y-4 border-t pt-6">
                 <div className="flex items-center space-x-2">
@@ -704,6 +707,8 @@ const VendorEventForm = () => {
                   </div>
                 )}
               </div>
+              </>
+              )}
 
               {/* Submit Buttons */}
               <div className="flex gap-4 pt-6 border-t">

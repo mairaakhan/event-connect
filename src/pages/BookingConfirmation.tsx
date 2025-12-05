@@ -4,7 +4,7 @@ import { UserNavbar } from "@/components/UserNavbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Download, Share2, CheckCircle2, Clock, CreditCard, AlertCircle } from "lucide-react";
+import { Download, Share2, CheckCircle2, Clock, CreditCard, AlertCircle, Loader2, Gift } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -24,48 +24,119 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { TicketDownloadCard } from "@/components/ui/ticket-confirmation-card";
 import type { Booking } from "@/types/event";
-import { mockEvents } from "@/data/mockEvents";
+import { supabase } from "@/integrations/supabase/client";
 
 const BookingConfirmation = () => {
   const { bookingId } = useParams();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [event, setEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [payerName, setPayerName] = useState("");
   const ticketRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const bookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-    const foundBooking = bookings.find((b: Booking) => b.id === bookingId);
-    
-    if (!foundBooking) {
-      navigate("/");
-      return;
-    }
-    
-    // Check if booking has expired
-    const now = new Date();
-    const expiresAt = new Date(foundBooking.expiresAt);
-    
-    if (now > expiresAt && foundBooking.status === 'reserved') {
-      // Auto-cancel expired booking
-      foundBooking.status = 'cancelled';
-      const updatedBookings = bookings.map((b: Booking) => 
-        b.id === foundBooking.id ? foundBooking : b
-      );
-      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-    }
-    
-    setBooking(foundBooking);
+    const loadBooking = async () => {
+      if (!bookingId) {
+        navigate("/");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Fetch booking from Supabase
+        const { data: bookingData, error: bookingError } = await supabase
+          .from('bookings')
+          .select('*, booking_items(*)')
+          .eq('id', bookingId)
+          .maybeSingle();
+
+        if (bookingError) throw bookingError;
+
+        if (!bookingData) {
+          toast.error("Booking not found");
+          navigate("/");
+          return;
+        }
+
+        // Check if booking has expired
+        const now = new Date();
+        const expiresAt = new Date(bookingData.expires_at);
+        
+        if (now > expiresAt && bookingData.status === 'reserved') {
+          // Auto-cancel expired booking
+          await supabase
+            .from('bookings')
+            .update({ status: 'cancelled' })
+            .eq('id', bookingId);
+          bookingData.status = 'cancelled';
+        }
+
+        // Transform to frontend Booking type
+        const transformedBooking: Booking = {
+          id: bookingData.id,
+          eventId: bookingData.event_id,
+          eventName: bookingData.event_name,
+          items: (bookingData.booking_items || []).map((item: any) => ({
+            categoryId: item.category_id || 'general',
+            categoryName: item.category_name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          totalAmount: Number(bookingData.total_amount),
+          discountApplied: Number(bookingData.discount_applied || 0),
+          paymentMethod: (bookingData.payment_method as 'bank-transfer' | 'easypaisa' | 'jazzcash') || 'easypaisa',
+          status: bookingData.status as 'reserved' | 'paid' | 'cancelled',
+          createdAt: bookingData.created_at,
+          expiresAt: bookingData.expires_at,
+          vendorId: bookingData.vendor_id,
+          platformCommission: Number(bookingData.platform_commission || 0),
+          paidBy: bookingData.paid_by,
+        };
+
+        setBooking(transformedBooking);
+
+        // Fetch event details
+        const { data: eventData } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', bookingData.event_id)
+          .maybeSingle();
+
+        if (eventData) {
+          setEvent({
+            ...eventData,
+            startDate: eventData.start_date,
+            venue: eventData.venue,
+            city: eventData.city,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading booking:', error);
+        toast.error("Failed to load booking");
+        navigate("/");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBooking();
   }, [bookingId, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!booking) {
     return null;
   }
 
-  // Get event details
-  const allEvents = [...mockEvents, ...JSON.parse(localStorage.getItem("vendorEvents") || "[]")];
-  const event = allEvents.find(e => e.id === booking.eventId);
+  const isFreeEvent = booking.totalAmount === 0;
 
   const handleDownloadTicket = async () => {
     if (!ticketRef.current) return;
@@ -100,7 +171,9 @@ const BookingConfirmation = () => {
   };
 
   const handleShare = (platform: string) => {
-    const message = `Help me pay for ${booking.eventName}! 🎟️ Total: Rs. ${booking.totalAmount.toFixed(0)}`;
+    const message = isFreeEvent 
+      ? `I'm registered for ${booking.eventName}! 🎟️` 
+      : `Help me pay for ${booking.eventName}! 🎟️ Total: Rs. ${booking.totalAmount.toFixed(0)}`;
     const url = window.location.href;
     
     switch (platform) {
@@ -108,14 +181,14 @@ const BookingConfirmation = () => {
         window.open(`https://wa.me/?text=${encodeURIComponent(message + "\n\n" + url)}`);
         break;
       case "email":
-        window.open(`mailto:?subject=${encodeURIComponent("Payment Request for Ticket")}&body=${encodeURIComponent(message + "\n\n" + url)}`);
+        window.open(`mailto:?subject=${encodeURIComponent(isFreeEvent ? "Event Registration" : "Payment Request for Ticket")}&body=${encodeURIComponent(message + "\n\n" + url)}`);
         break;
       case "messenger":
         window.open(`fb-messenger://share?link=${encodeURIComponent(url)}`);
         break;
       case "copy":
         navigator.clipboard.writeText(url);
-        toast.success("Payment link copied!");
+        toast.success(isFreeEvent ? "Registration link copied!" : "Payment link copied!");
         break;
     }
   };
@@ -124,31 +197,41 @@ const BookingConfirmation = () => {
     setShowPaymentDialog(true);
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     if (!payerName.trim()) {
       toast.error("Please enter your name");
       return;
     }
 
-    const updatedBooking = {
-      ...booking!,
-      status: 'paid' as const,
-      paidBy: payerName,
-    };
+    try {
+      // Update booking in Supabase
+      const { error } = await supabase
+        .from('bookings')
+        .update({ 
+          status: 'paid',
+          paid_by: payerName 
+        })
+        .eq('id', booking.id);
 
-    const bookings = JSON.parse(localStorage.getItem("bookings") || "[]");
-    const updatedBookings = bookings.map((b: Booking) => 
-      b.id === booking!.id ? updatedBooking : b
-    );
-    localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-    
-    setBooking(updatedBooking);
-    setShowPaymentDialog(false);
-    setPayerName("");
-    
-    toast.success("Payment confirmed!", {
-      description: "You can now download your ticket."
-    });
+      if (error) throw error;
+
+      const updatedBooking = {
+        ...booking,
+        status: 'paid' as const,
+        paidBy: payerName,
+      };
+      
+      setBooking(updatedBooking);
+      setShowPaymentDialog(false);
+      setPayerName("");
+      
+      toast.success("Payment confirmed!", {
+        description: "You can now download your ticket."
+      });
+    } catch (error) {
+      console.error('Error confirming payment:', error);
+      toast.error("Failed to confirm payment");
+    }
   };
 
   const getTimeRemaining = () => {
@@ -198,21 +281,30 @@ const BookingConfirmation = () => {
 
               <div className="text-center">
                 <h1 className="text-xl sm:text-3xl font-bold mb-2">
-                  {isPaid ? '✅ Booking Confirmed & Paid!' :
+                  {isPaid ? (isFreeEvent ? '✅ Registration Confirmed!' : '✅ Booking Confirmed & Paid!') :
                    isCancelled ? '❌ Booking Cancelled' :
                    '⏳ Booking Reserved - Awaiting Payment'}
                 </h1>
                 <p className="text-sm sm:text-base text-muted-foreground">
-                  {isPaid ? 'Your ticket is ready! Download it below.' :
+                  {isPaid ? (isFreeEvent ? 'Your registration is confirmed! Download your pass below.' : 'Your ticket is ready! Download it below.') :
                    isCancelled ? 'This booking has expired and been cancelled.' :
                    'Complete payment within 24 hours to confirm your booking.'}
                 </p>
-                {isReserved && (
+                {isReserved && !isFreeEvent && (
                   <p className="text-sm font-semibold text-yellow-600 dark:text-yellow-400 mt-2">
                     {getTimeRemaining()}
                   </p>
                 )}
               </div>
+
+              {isFreeEvent && isPaid && (
+                <div className="flex justify-center">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
+                    <Gift className="h-4 w-4" />
+                    <span className="text-sm font-medium">Free Event</span>
+                  </div>
+                </div>
+              )}
 
               <Separator />
 
@@ -222,7 +314,7 @@ const BookingConfirmation = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Ticket ID:</span>
-                      <span className="font-mono font-semibold text-xs sm:text-sm">{booking.id}</span>
+                      <span className="font-mono font-semibold text-xs sm:text-sm">{booking.id.slice(0, 8).toUpperCase()}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Booked On:</span>
@@ -238,7 +330,7 @@ const BookingConfirmation = () => {
                         {booking.status}
                       </span>
                     </div>
-                    {isReserved && (
+                    {isReserved && !isFreeEvent && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Expires At:</span>
                         <span className="text-red-600 font-semibold">
@@ -248,7 +340,7 @@ const BookingConfirmation = () => {
                     )}
                     {isPaid && booking.paidBy && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Paid By:</span>
+                        <span className="text-muted-foreground">{isFreeEvent ? 'Registered By:' : 'Paid By:'}</span>
                         <span>{booking.paidBy}</span>
                       </div>
                     )}
@@ -258,15 +350,22 @@ const BookingConfirmation = () => {
                 <Separator />
 
                 <div>
-                  <h3 className="font-semibold mb-2">Ticket Details</h3>
+                  <h3 className="font-semibold mb-2">{isFreeEvent ? 'Registration Details' : 'Ticket Details'}</h3>
                   <div className="space-y-2">
-                    {booking.items.map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span>{item.categoryName} × {item.quantity}</span>
-                        <span>Rs. {(item.price * item.quantity).toFixed(0)}</span>
+                    {booking.items.length > 0 ? (
+                      booking.items.map((item, index) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span>{item.categoryName} × {item.quantity}</span>
+                          <span>{isFreeEvent ? 'Free' : `Rs. ${(item.price * item.quantity).toFixed(0)}`}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex justify-between text-sm">
+                        <span>Registration × 1</span>
+                        <span>Free</span>
                       </div>
-                    ))}
-                    {booking.discountApplied && booking.discountApplied > 0 && (
+                    )}
+                    {!isFreeEvent && booking.discountApplied && booking.discountApplied > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Discount</span>
                         <span>- Rs. {booking.discountApplied.toFixed(0)}</span>
@@ -275,7 +374,9 @@ const BookingConfirmation = () => {
                     <Separator />
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total</span>
-                      <span className="text-primary">Rs. {booking.totalAmount.toFixed(0)}</span>
+                      <span className={isFreeEvent ? "text-emerald-600" : "text-primary"}>
+                        {isFreeEvent ? 'Free' : `Rs. ${booking.totalAmount.toFixed(0)}`}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -288,10 +389,10 @@ const BookingConfirmation = () => {
                 <Button 
                   onClick={handleDownloadTicket}
                   disabled={!isPaid}
-                  className="w-full bg-gradient-accent hover:opacity-90"
+                  className={`w-full ${isFreeEvent ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-gradient-accent hover:opacity-90'}`}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  {isPaid ? 'Download Ticket' : '🔒 Download Ticket (Payment Required)'}
+                  {isPaid ? (isFreeEvent ? 'Download Pass' : 'Download Ticket') : '🔒 Download Ticket (Payment Required)'}
                 </Button>
 
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -299,7 +400,7 @@ const BookingConfirmation = () => {
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="flex-1">
                         <Share2 className="mr-2 h-4 w-4" />
-                        Share Payment Link
+                        {isFreeEvent ? 'Share Event' : 'Share Payment Link'}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -318,7 +419,7 @@ const BookingConfirmation = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {isReserved && (
+                  {isReserved && !isFreeEvent && (
                     <Button 
                       onClick={handlePayNow}
                       className="flex-1"

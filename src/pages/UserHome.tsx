@@ -19,7 +19,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { GradientBackground } from "@/components/GradientBackground";
 
-const categories = ["all", "music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
+const categories = ["all", "free", "music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
 const cities = ["all", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Multan", "Faisalabad"];
 
 const UserHome = () => {
@@ -42,7 +42,8 @@ const UserHome = () => {
       const eventStartDate = new Date(event.startDate);
       const matchesStartDate = !startDate || eventStartDate >= startDate;
       const matchesEndDate = !endDate || eventStartDate <= endDate;
-      const matchesCategory = category === "all" || event.category === category;
+      const matchesCategory = category === "all" || 
+        (category === "free" ? event.ticketPrice === 0 : event.category === category);
       const matchesCity = city === "all" || event.city === city;
 
       return matchesStartDate && matchesEndDate && matchesCategory && matchesCity;
