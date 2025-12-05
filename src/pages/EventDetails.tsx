@@ -30,6 +30,7 @@ const EventDetails = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
+  const [isBooking, setIsBooking] = useState(false);
 
   // Load event from Supabase
   useEffect(() => {
@@ -203,7 +204,6 @@ const EventDetails = () => {
   const { total, discount } = calculateTotal();
   const totalTicketsSelected = Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0);
 
-  const [isBooking, setIsBooking] = useState(false);
   const isFreeEvent = event.ticketPrice === 0 && (!hasCategories || event.ticketCategories!.every(c => c.price === 0));
 
   const handleContinueToBook = () => {
