@@ -8,6 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Calendar,
   MapPin,
   Ticket,
@@ -19,10 +26,22 @@ import {
   Plus,
   Minus,
   Gift,
+  CalendarDays,
 } from "lucide-react";
 import { format, differenceInDays, isPast, isFuture } from "date-fns";
 import { toast } from "sonner";
 import type { Event, TicketCategory, Booking, BookingItem } from "@/types/event";
+
+interface EventSchedule {
+  id: string;
+  dayDate: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface TicketCategoryWithSchedule extends TicketCategory {
+  scheduleId?: string;
+}
 
 const EventDetails = () => {
   const { id } = useParams();
@@ -31,6 +50,10 @@ const EventDetails = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({});
   const [isBooking, setIsBooking] = useState(false);
+  const [eventSchedules, setEventSchedules] = useState<EventSchedule[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [sameTicketsAllDays, setSameTicketsAllDays] = useState(true);
+  const [allTicketCategories, setAllTicketCategories] = useState<TicketCategoryWithSchedule[]>([]);
 
   // Load event from Supabase
   useEffect(() => {
@@ -61,6 +84,41 @@ const EventDetails = () => {
           .eq('event_id', id);
 
         if (catError) throw catError;
+
+        // Fetch event schedules
+        const { data: schedules } = await supabase
+          .from('event_schedules')
+          .select('*')
+          .eq('event_id', id)
+          .order('day_date', { ascending: true });
+
+        if (schedules && schedules.length > 0) {
+          const transformedSchedules = schedules.map(s => ({
+            id: s.id,
+            dayDate: s.day_date,
+            startTime: s.start_time,
+            endTime: s.end_time,
+          }));
+          setEventSchedules(transformedSchedules);
+          // Auto-select first date if day-wise tickets
+          if (!(eventData as any).same_tickets_all_days) {
+            setSelectedDate(transformedSchedules[0].id);
+          }
+        }
+
+        setSameTicketsAllDays((eventData as any).same_tickets_all_days !== false);
+
+        // Store all categories with schedule info
+        const allCats = categories?.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          price: cat.price,
+          quantity: cat.quantity,
+          sold: cat.sold,
+          description: cat.description || '',
+          scheduleId: (cat as any).schedule_id || undefined,
+        })) || [];
+        setAllTicketCategories(allCats);
 
         // Transform to frontend Event type
         const transformedEvent: Event = {
@@ -93,14 +151,7 @@ const EventDetails = () => {
             discount: eventData.group_booking_discount,
             minTickets: eventData.group_booking_min_tickets || 5,
           } : undefined,
-          ticketCategories: categories?.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            price: cat.price,
-            quantity: cat.quantity,
-            sold: cat.sold,
-            description: cat.description || '',
-          })) || [],
+          ticketCategories: allCats,
         };
 
         setEvent(transformedEvent);
@@ -143,8 +194,15 @@ const EventDetails = () => {
     isFuture(new Date(event.flashSale.endDate)) &&
     isPast(new Date(event.flashSale.startDate));
 
-  const hasCategories = event.ticketCategories && event.ticketCategories.length > 0;
+  // Filter categories based on selected date for day-wise tickets
+  const displayCategories = !sameTicketsAllDays && selectedDate
+    ? allTicketCategories.filter(c => c.scheduleId === selectedDate)
+    : allTicketCategories.filter(c => !c.scheduleId);
+
+  const hasCategories = displayCategories && displayCategories.length > 0;
   const availableTickets = event.totalTickets - event.soldTickets;
+  const hasMultipleDays = eventSchedules.length > 0;
+  const requiresDateSelection = hasMultipleDays && !sameTicketsAllDays;
 
   const updateTicketCount = (categoryId: string, change: number) => {
     setSelectedTickets(prev => {
@@ -152,7 +210,7 @@ const EventDetails = () => {
       const newValue = Math.max(0, current + change);
       
       // Find the category to check availability
-      const category = event.ticketCategories?.find(c => c.id === categoryId);
+      const category = displayCategories?.find(c => c.id === categoryId);
       const maxAvailable = category ? category.quantity - category.sold : 0;
       
       if (newValue > maxAvailable) {
@@ -452,6 +510,31 @@ const EventDetails = () => {
                   <p className="text-muted-foreground leading-relaxed">{event.description}</p>
                 </div>
 
+                {/* Multi-Day Schedule Display */}
+                {hasMultipleDays && (
+                  <div className="border-t pt-6 mt-6">
+                    <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5 text-primary" />
+                      Event Schedule
+                    </h2>
+                    <div className="space-y-2">
+                      {eventSchedules.map((schedule) => (
+                        <div 
+                          key={schedule.id} 
+                          className="flex justify-between items-center p-3 rounded-lg bg-muted/50"
+                        >
+                          <span className="font-medium">
+                            {format(new Date(schedule.dayDate), "EEEE, MMMM d")}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {schedule.startTime} - {schedule.endTime}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {!isFreeEvent && (event.earlyBird || event.groupBooking) && (
                   <div className="border-t pt-6 mt-6">
                     <h2 className="text-xl font-bold mb-3">Special Offers</h2>
@@ -519,97 +602,106 @@ const EventDetails = () => {
                         </div>
                       </div>
 
-                      <div className="space-y-3">
-                        <Button
+                      <Button
                           onClick={() => navigate(`/event/${event.id}/register`)}
                           className="w-full bg-emerald-500 hover:bg-emerald-600 text-sm sm:text-base"
                           disabled={!isLive}
                         >
                           {!isLive 
                             ? `Registration opens in ${daysUntilLive} days` 
-                            : "Register with Details"
+                            : "Register for Event"
                           }
                         </Button>
-                        <Button
-                          onClick={handleContinueToBook}
-                          variant="outline"
-                          className="w-full text-sm sm:text-base"
-                          disabled={!isLive || isBooking}
-                        >
-                          {isBooking ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Processing...
-                            </>
-                          ) : "Quick Register (Skip Details)"
-                          }
-                        </Button>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground text-center">
-                          Choose "Register with Details" to get a downloadable ticket with your name
-                        </p>
-                      </div>
                     </div>
                   ) : (
                     <>
+                      {/* Date Selection for day-wise tickets */}
+                      {requiresDateSelection && (
+                        <div className="space-y-3">
+                          <Label>Select Date</Label>
+                          <Select value={selectedDate} onValueChange={(val) => {
+                            setSelectedDate(val);
+                            setSelectedTickets({}); // Reset tickets when date changes
+                          }}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choose a date" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {eventSchedules.map((schedule) => (
+                                <SelectItem key={schedule.id} value={schedule.id}>
+                                  {format(new Date(schedule.dayDate), "EEEE, MMM d")} ({schedule.startTime} - {schedule.endTime})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       {/* Ticket Categories Selection with +/- buttons */}
                       {hasCategories ? (
                         <div className="space-y-3">
                           <Label>Select Tickets</Label>
-                          {event.ticketCategories!.map((category) => {
-                            const available = category.quantity - category.sold;
-                            const isSoldOut = available <= 0;
-                            const selected = selectedTickets[category.id] || 0;
-                            
-                            return (
-                              <Card 
-                                key={category.id}
-                                className={`${isSoldOut ? 'opacity-50' : ''}`}
-                              >
-                                <CardContent className="p-4">
-                                  <div className="space-y-3">
-                                    <div className="flex justify-between items-start">
-                                      <div className="flex-1">
-                                        <p className="font-semibold">{category.name}</p>
-                                        {category.description && (
+                          {(!requiresDateSelection || selectedDate) ? (
+                            displayCategories.map((category) => {
+                              const available = category.quantity - category.sold;
+                              const isSoldOut = available <= 0;
+                              const selected = selectedTickets[category.id] || 0;
+                              
+                              return (
+                                <Card 
+                                  key={category.id}
+                                  className={`${isSoldOut ? 'opacity-50' : ''}`}
+                                >
+                                  <CardContent className="p-4">
+                                    <div className="space-y-3">
+                                      <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                          <p className="font-semibold">{category.name}</p>
+                                          {category.description && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              {category.description}
+                                            </p>
+                                          )}
                                           <p className="text-xs text-muted-foreground mt-1">
-                                            {category.description}
+                                            {isSoldOut ? 'Sold Out' : `${available} available`}
                                           </p>
-                                        )}
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          {isSoldOut ? 'Sold Out' : `${available} available`}
-                                        </p>
+                                        </div>
+                                        <p className="font-bold text-primary">Rs. {category.price}</p>
                                       </div>
-                                      <p className="font-bold text-primary">Rs. {category.price}</p>
+                                      
+                                      {!isSoldOut && (
+                                        <div className="flex items-center justify-center gap-3">
+                                          <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => updateTicketCount(category.id, -1)}
+                                            disabled={selected === 0}
+                                          >
+                                            <Minus className="h-4 w-4" />
+                                          </Button>
+                                          <span className="font-bold text-lg min-w-[3rem] text-center">
+                                            {selected}
+                                          </span>
+                                          <Button
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => updateTicketCount(category.id, 1)}
+                                            disabled={selected >= available}
+                                          >
+                                            <Plus className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      )}
                                     </div>
-                                    
-                                    {!isSoldOut && (
-                                      <div className="flex items-center justify-center gap-3">
-                                        <Button
-                                          variant="outline"
-                                          size="icon"
-                                          onClick={() => updateTicketCount(category.id, -1)}
-                                          disabled={selected === 0}
-                                        >
-                                          <Minus className="h-4 w-4" />
-                                        </Button>
-                                        <span className="font-bold text-lg min-w-[3rem] text-center">
-                                          {selected}
-                                        </span>
-                                        <Button
-                                          variant="outline"
-                                          size="icon"
-                                          onClick={() => updateTicketCount(category.id, 1)}
-                                          disabled={selected >= available}
-                                        >
-                                          <Plus className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })
+                          ) : (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              Please select a date first to see available tickets
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-3">

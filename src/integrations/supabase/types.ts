@@ -170,6 +170,7 @@ export type Database = {
           image: string | null
           name: string
           requires_registration: boolean | null
+          same_tickets_all_days: boolean | null
           sold_tickets: number
           source: string | null
           start_date: string
@@ -200,6 +201,7 @@ export type Database = {
           image?: string | null
           name: string
           requires_registration?: boolean | null
+          same_tickets_all_days?: boolean | null
           sold_tickets?: number
           source?: string | null
           start_date: string
@@ -230,6 +232,7 @@ export type Database = {
           image?: string | null
           name?: string
           requires_registration?: boolean | null
+          same_tickets_all_days?: boolean | null
           sold_tickets?: number
           source?: string | null
           start_date?: string
@@ -261,6 +264,7 @@ export type Database = {
           name: string
           price: number
           quantity: number
+          schedule_id: string | null
           sold: number
         }
         Insert: {
@@ -271,6 +275,7 @@ export type Database = {
           name: string
           price: number
           quantity?: number
+          schedule_id?: string | null
           sold?: number
         }
         Update: {
@@ -281,6 +286,7 @@ export type Database = {
           name?: string
           price?: number
           quantity?: number
+          schedule_id?: string | null
           sold?: number
         }
         Relationships: [
@@ -289,6 +295,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_categories_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "event_schedules"
             referencedColumns: ["id"]
           },
         ]
