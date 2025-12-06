@@ -30,10 +30,11 @@ const VendorEventForm = () => {
 
   const [vendor, setVendor] = useState<any>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
+  const [ticketCategories, setTicketCategories] = useState<Array<TicketCategory & { scheduleId?: string }>>([]);
   const [isFreeEvent, setIsFreeEvent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMultiDay, setIsMultiDay] = useState(false);
+  const [sameTicketsAllDays, setSameTicketsAllDays] = useState(true);
   const [eventSchedules, setEventSchedules] = useState<Array<{
     id: string;
     dayDate: string;
@@ -45,6 +46,7 @@ const VendorEventForm = () => {
     startTime: "",
     endTime: "",
   });
+  const [selectedScheduleForCategory, setSelectedScheduleForCategory] = useState<string>("");
   const [currentCategory, setCurrentCategory] = useState({
     name: "",
     price: "",
@@ -121,6 +123,7 @@ const VendorEventForm = () => {
         });
         setImagePreview(event.image || "");
         setIsFreeEvent(Number(event.ticket_price) === 0);
+        setSameTicketsAllDays((event as any).same_tickets_all_days !== false);
 
         // Fetch ticket categories
         const { data: categories } = await supabase
@@ -177,17 +180,25 @@ const VendorEventForm = () => {
       return;
     }
 
-    const newCategory: TicketCategory = {
+    // For day-wise tickets, require schedule selection
+    if (isMultiDay && !sameTicketsAllDays && !selectedScheduleForCategory) {
+      toast.error("Please select a day for this ticket category");
+      return;
+    }
+
+    const newCategory: TicketCategory & { scheduleId?: string } = {
       id: Date.now().toString(),
       name: currentCategory.name,
       price: parseFloat(currentCategory.price),
       quantity: parseInt(currentCategory.quantity),
       sold: 0,
       description: currentCategory.description,
+      scheduleId: isMultiDay && !sameTicketsAllDays ? selectedScheduleForCategory : undefined,
     };
 
     setTicketCategories([...ticketCategories, newCategory]);
     setCurrentCategory({ name: "", price: "", quantity: "", description: "" });
+    setSelectedScheduleForCategory("");
     toast.success("Ticket category added!");
   };
 
@@ -247,6 +258,7 @@ const VendorEventForm = () => {
         endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
         ticketsLiveFrom: new Date(formData.ticketsLiveFrom).toISOString(),
         requiresRegistration: formData.requiresRegistration,
+        sameTicketsAllDays: sameTicketsAllDays,
         earlyBird: formData.enableEarlyBird
           ? {
               discount: parseFloat(formData.earlyBirdDiscount),
@@ -277,6 +289,29 @@ const VendorEventForm = () => {
         savedEvent = await createEvent(eventData, vendor.id, vendor.organization_name);
       }
 
+      // Save event schedules first (to get their IDs for category linking)
+      let savedScheduleIds: Record<string, string> = {};
+      if (isMultiDay && eventSchedules.length > 0 && savedEvent) {
+        for (const s of eventSchedules) {
+          const { data: schedData, error: schedError } = await supabase
+            .from('event_schedules')
+            .insert({
+              event_id: savedEvent.id,
+              day_date: s.dayDate,
+              start_time: s.startTime,
+              end_time: s.endTime,
+            })
+            .select()
+            .single();
+
+          if (schedError) {
+            console.error('Error saving schedule:', schedError);
+          } else if (schedData) {
+            savedScheduleIds[s.id] = schedData.id;
+          }
+        }
+      }
+
       if (!isFreeEvent && ticketCategories.length > 0 && savedEvent) {
         const categoriesToInsert = ticketCategories.map(cat => ({
           event_id: savedEvent.id,
@@ -285,6 +320,7 @@ const VendorEventForm = () => {
           quantity: cat.quantity,
           description: cat.description || null,
           sold: 0,
+          schedule_id: cat.scheduleId ? (savedScheduleIds[cat.scheduleId] || null) : null,
         }));
 
         const { error: catError } = await supabase
@@ -294,24 +330,6 @@ const VendorEventForm = () => {
         if (catError) {
           console.error('Error saving ticket categories:', catError);
           toast.error("Event saved but ticket categories failed to save");
-        }
-      }
-
-      // Save event schedules
-      if (isMultiDay && eventSchedules.length > 0 && savedEvent) {
-        const schedulesToInsert = eventSchedules.map(s => ({
-          event_id: savedEvent.id,
-          day_date: s.dayDate,
-          start_time: s.startTime,
-          end_time: s.endTime,
-        }));
-
-        const { error: schedError } = await supabase
-          .from('event_schedules')
-          .insert(schedulesToInsert);
-
-        if (schedError) {
-          console.error('Error saving schedules:', schedError);
         }
       }
 
@@ -496,6 +514,29 @@ const VendorEventForm = () => {
                         </Button>
                       </CardContent>
                     </Card>
+
+                    {/* Ticket Type Toggle - Same for all days or separate per day */}
+                    {!isFreeEvent && eventSchedules.length > 0 && (
+                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-semibold">Ticket Type</Label>
+                          <p className="text-xs text-muted-foreground">
+                            {sameTicketsAllDays 
+                              ? "Same tickets available for all days" 
+                              : "Different tickets for each day"
+                            }
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs ${sameTicketsAllDays ? 'text-primary font-medium' : 'text-muted-foreground'}`}>Same</span>
+                          <Switch 
+                            checked={!sameTicketsAllDays} 
+                            onCheckedChange={(checked) => setSameTicketsAllDays(!checked)} 
+                          />
+                          <span className={`text-xs ${!sameTicketsAllDays ? 'text-primary font-medium' : 'text-muted-foreground'}`}>Per Day</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -665,6 +706,24 @@ const VendorEventForm = () => {
                           onChange={(e) => setCurrentCategory({ ...currentCategory, description: e.target.value })}
                         />
                       </div>
+                      {/* Day Selection for day-wise tickets */}
+                      {isMultiDay && !sameTicketsAllDays && eventSchedules.length > 0 && (
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>For Day *</Label>
+                          <Select value={selectedScheduleForCategory} onValueChange={setSelectedScheduleForCategory}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select day" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {eventSchedules.map((schedule) => (
+                                <SelectItem key={schedule.id} value={schedule.id}>
+                                  {schedule.dayDate} ({schedule.startTime} - {schedule.endTime})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                     <Button
                       type="button"
