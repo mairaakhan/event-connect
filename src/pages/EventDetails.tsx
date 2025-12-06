@@ -120,8 +120,8 @@ const EventDetails = () => {
         })) || [];
         setAllTicketCategories(allCats);
 
-        // Transform to frontend Event type
-        const transformedEvent: Event = {
+        // Transform to frontend Event type with requiresRegistration
+        const transformedEvent: Event & { requiresRegistration?: boolean } = {
           id: eventData.id,
           name: eventData.name,
           description: eventData.description || '',
@@ -138,6 +138,7 @@ const EventDetails = () => {
           vendorId: eventData.vendor_id || undefined,
           vendorName: eventData.vendor_name || undefined,
           status: (eventData.status as 'live' | 'scheduled' | 'ended') || 'scheduled',
+          requiresRegistration: (eventData as any).requires_registration || false,
           earlyBird: eventData.early_bird_discount ? {
             discount: eventData.early_bird_discount,
             deadline: eventData.early_bird_deadline || '',
@@ -582,7 +583,10 @@ const EventDetails = () => {
                           <span className="font-semibold text-emerald-800 dark:text-emerald-200">Free Event</span>
                         </div>
                         <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300">
-                          This event is free to attend.
+                          {(event as any).requiresRegistration 
+                            ? "Registration is required to attend this event."
+                            : "This event is free and open to everyone."
+                          }
                         </p>
                       </div>
                       
@@ -602,7 +606,8 @@ const EventDetails = () => {
                         </div>
                       </div>
 
-                      <Button
+                      {(event as any).requiresRegistration ? (
+                        <Button
                           onClick={() => navigate(`/event/${event.id}/register`)}
                           className="w-full bg-emerald-500 hover:bg-emerald-600 text-sm sm:text-base"
                           disabled={!isLive}
@@ -612,6 +617,13 @@ const EventDetails = () => {
                             : "Register for Event"
                           }
                         </Button>
+                      ) : (
+                        <div className="text-center p-4 rounded-lg bg-muted/50">
+                          <p className="text-sm text-muted-foreground">
+                            No registration required. Just show up and enjoy!
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
