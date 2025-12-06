@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Upload, X, Trash2, Plus, Loader2 } from "lucide-react";
+import { Upload, X, Trash2, Plus, Loader2, Calendar, Clock } from "lucide-react";
 import { TicketCategory } from "@/types/event";
 import { createEvent, updateEvent } from "@/hooks/useEvents";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,40 +31,18 @@ const VendorEventForm = () => {
 
   const [vendor, setVendor] = useState<any>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [ticketCategories, setTicketCategories] = useState<Array<TicketCategory & { scheduleId?: string }>>([]);
-  const [isFreeEvent, setIsFreeEvent] = useState(false);
+  const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isMultiDay, setIsMultiDay] = useState(false);
-  const [sameTicketsAllDays, setSameTicketsAllDays] = useState(true);
-  const [eventSchedules, setEventSchedules] = useState<Array<{
-    id: string;
-    dayDate: string;
-    startTime: string;
-    endTime: string;
-  }>>([]);
-  const [currentSchedule, setCurrentSchedule] = useState({
-    dayDate: "",
-    startTime: "",
-    endTime: "",
-  });
-  const [selectedScheduleForCategory, setSelectedScheduleForCategory] = useState<string>("");
-  const [currentCategory, setCurrentCategory] = useState({
-    name: "",
-    price: "",
-    quantity: "",
-    description: "",
-  });
+
+  // Step 1: Basic Details
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    startDate: "",
-    endDate: "",
     category: "music",
     city: "",
     venue: "",
     ticketsLiveFrom: "",
     totalTickets: "",
-    requiresRegistration: false,
     enableEarlyBird: false,
     earlyBirdDiscount: "",
     earlyBirdDeadline: "",
@@ -76,6 +55,46 @@ const VendorEventForm = () => {
     groupMinTickets: "",
   });
 
+  // Step 2: Event Duration Type
+  const [eventDurationType, setEventDurationType] = useState<"single" | "multi">("single");
+  
+  // Single-day event
+  const [singleDayData, setSingleDayData] = useState({
+    date: "",
+    startTime: "",
+    endTime: "",
+  });
+
+  // Multi-day event
+  const [multiDayDateMode, setMultiDayDateMode] = useState<"range" | "specific">("range");
+  const [dateRangeStart, setDateRangeStart] = useState("");
+  const [dateRangeEnd, setDateRangeEnd] = useState("");
+  const [sameTimingsAllDays, setSameTimingsAllDays] = useState(true);
+  const [commonTiming, setCommonTiming] = useState({ startTime: "", endTime: "" });
+  const [eventSchedules, setEventSchedules] = useState<Array<{
+    id: string;
+    dayDate: string;
+    startTime: string;
+    endTime: string;
+  }>>([]);
+  const [currentSchedule, setCurrentSchedule] = useState({
+    dayDate: "",
+    startTime: "",
+    endTime: "",
+  });
+
+  // Step 3: Event Type (Paid/Free)
+  const [isFreeEvent, setIsFreeEvent] = useState(false);
+  const [requiresRegistration, setRequiresRegistration] = useState(true);
+
+  // Ticket category input
+  const [currentCategory, setCurrentCategory] = useState({
+    name: "",
+    price: "",
+    quantity: "",
+    description: "",
+  });
+
   useEffect(() => {
     const auth = localStorage.getItem("vendorAuth");
     if (!auth) {
@@ -86,7 +105,6 @@ const VendorEventForm = () => {
 
     const loadEvent = async () => {
       if (isEdit && id) {
-        // Fetch event from Supabase
         const { data: event, error } = await supabase
           .from('events')
           .select('*')
@@ -102,14 +120,11 @@ const VendorEventForm = () => {
         setFormData({
           name: event.name,
           description: event.description || "",
-          startDate: event.start_date?.slice(0, 16) || "",
-          endDate: event.end_date?.slice(0, 16) || "",
           category: event.category,
           city: event.city,
           venue: event.venue,
           ticketsLiveFrom: event.tickets_live_from?.slice(0, 16) || "",
           totalTickets: event.total_tickets?.toString() || "",
-          requiresRegistration: (event as any).requires_registration || false,
           enableEarlyBird: !!event.early_bird_discount,
           earlyBirdDiscount: event.early_bird_discount?.toString() || "",
           earlyBirdDeadline: event.early_bird_deadline?.slice(0, 16) || "",
@@ -123,38 +138,45 @@ const VendorEventForm = () => {
         });
         setImagePreview(event.image || "");
         setIsFreeEvent(Number(event.ticket_price) === 0);
-        setSameTicketsAllDays((event as any).same_tickets_all_days !== false);
+        setRequiresRegistration((event as any).requires_registration || false);
 
-        // Fetch ticket categories
-        const { data: categories } = await supabase
-          .from('ticket_categories')
-          .select('*')
-          .eq('event_id', id);
-
-        if (categories) {
-          setTicketCategories(categories.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            price: Number(cat.price),
-            quantity: cat.quantity,
-            sold: cat.sold,
-            description: cat.description || "",
-          })));
-        }
-
-        // Fetch event schedules
+        // Fetch schedules
         const { data: schedules } = await supabase
           .from('event_schedules')
           .select('*')
           .eq('event_id', id);
 
         if (schedules && schedules.length > 0) {
-          setIsMultiDay(true);
+          setEventDurationType("multi");
           setEventSchedules(schedules.map(s => ({
             id: s.id,
             dayDate: s.day_date,
             startTime: s.start_time,
             endTime: s.end_time,
+          })));
+        } else {
+          setEventDurationType("single");
+          setSingleDayData({
+            date: event.start_date?.slice(0, 10) || "",
+            startTime: event.start_date?.slice(11, 16) || "",
+            endTime: event.end_date?.slice(11, 16) || "",
+          });
+        }
+
+        // Fetch ticket categories
+        const { data: cats } = await supabase
+          .from('ticket_categories')
+          .select('*')
+          .eq('event_id', id);
+
+        if (cats) {
+          setTicketCategories(cats.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            price: Number(cat.price),
+            quantity: cat.quantity,
+            sold: cat.sold,
+            description: cat.description || "",
           })));
         }
       }
@@ -180,25 +202,17 @@ const VendorEventForm = () => {
       return;
     }
 
-    // For day-wise tickets, require schedule selection
-    if (isMultiDay && !sameTicketsAllDays && !selectedScheduleForCategory) {
-      toast.error("Please select a day for this ticket category");
-      return;
-    }
-
-    const newCategory: TicketCategory & { scheduleId?: string } = {
+    const newCategory: TicketCategory = {
       id: Date.now().toString(),
       name: currentCategory.name,
       price: parseFloat(currentCategory.price),
       quantity: parseInt(currentCategory.quantity),
       sold: 0,
       description: currentCategory.description,
-      scheduleId: isMultiDay && !sameTicketsAllDays ? selectedScheduleForCategory : undefined,
     };
 
     setTicketCategories([...ticketCategories, newCategory]);
     setCurrentCategory({ name: "", price: "", quantity: "", description: "" });
-    setSelectedScheduleForCategory("");
     toast.success("Ticket category added!");
   };
 
@@ -221,24 +235,97 @@ const VendorEventForm = () => {
     setEventSchedules(eventSchedules.filter(s => s.id !== scheduleId));
   };
 
+  // Generate schedules from date range
+  const generateSchedulesFromRange = () => {
+    if (!dateRangeStart || !dateRangeEnd) return;
+    if (!sameTimingsAllDays && (!commonTiming.startTime || !commonTiming.endTime)) return;
+
+    const start = new Date(dateRangeStart);
+    const end = new Date(dateRangeEnd);
+    const schedules: typeof eventSchedules = [];
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().slice(0, 10);
+      schedules.push({
+        id: Date.now().toString() + dateStr,
+        dayDate: dateStr,
+        startTime: sameTimingsAllDays ? commonTiming.startTime : "",
+        endTime: sameTimingsAllDays ? commonTiming.endTime : "",
+      });
+    }
+    
+    setEventSchedules(schedules);
+    if (sameTimingsAllDays) {
+      toast.success(`Generated ${schedules.length} day schedules`);
+    } else {
+      toast.info("Schedules generated. Please set timings for each day.");
+    }
+  };
+
+  const updateScheduleTiming = (scheduleId: string, field: "startTime" | "endTime", value: string) => {
+    setEventSchedules(eventSchedules.map(s => 
+      s.id === scheduleId ? { ...s, [field]: value } : s
+    ));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!vendor) return;
 
-    if (!isFreeEvent && ticketCategories.length === 0) {
-      toast.error("Please add at least one ticket category or mark as free event");
+    // Validation
+    if (!formData.name || !formData.category || !formData.city || !formData.venue) {
+      toast.error("Please fill in all required event details");
       return;
     }
 
-    if (isMultiDay && eventSchedules.length === 0) {
-      toast.error("Please add at least one day schedule for multi-day events");
+    if (eventDurationType === "single") {
+      if (!singleDayData.date || !singleDayData.startTime || !singleDayData.endTime) {
+        toast.error("Please fill in the event date and timings");
+        return;
+      }
+    } else {
+      if (eventSchedules.length === 0) {
+        toast.error("Please add at least one day schedule for multi-day events");
+        return;
+      }
+      // Check all schedules have timings
+      const missingTimings = eventSchedules.some(s => !s.startTime || !s.endTime);
+      if (missingTimings) {
+        toast.error("Please set timings for all days");
+        return;
+      }
+    }
+
+    if (!isFreeEvent && ticketCategories.length === 0) {
+      toast.error("Please add at least one ticket category");
+      return;
+    }
+
+    if (!formData.ticketsLiveFrom) {
+      toast.error("Please set when tickets go live");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      // Calculate dates
+      let startDate: string;
+      let endDate: string | undefined;
+
+      if (eventDurationType === "single") {
+        startDate = new Date(`${singleDayData.date}T${singleDayData.startTime}`).toISOString();
+        endDate = new Date(`${singleDayData.date}T${singleDayData.endTime}`).toISOString();
+      } else {
+        const sortedSchedules = [...eventSchedules].sort((a, b) => 
+          new Date(a.dayDate).getTime() - new Date(b.dayDate).getTime()
+        );
+        startDate = new Date(`${sortedSchedules[0].dayDate}T${sortedSchedules[0].startTime}`).toISOString();
+        const lastSchedule = sortedSchedules[sortedSchedules.length - 1];
+        endDate = new Date(`${lastSchedule.dayDate}T${lastSchedule.endTime}`).toISOString();
+      }
+
       const totalTickets = isFreeEvent 
         ? parseInt(formData.totalTickets || "0") 
         : ticketCategories.reduce((sum, cat) => sum + cat.quantity, 0);
@@ -254,25 +341,25 @@ const VendorEventForm = () => {
         totalTickets: totalTickets,
         image: imagePreview || "",
         status: new Date(formData.ticketsLiveFrom) > new Date() ? "scheduled" : "live",
-        startDate: new Date(formData.startDate).toISOString(),
-        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
+        startDate,
+        endDate,
         ticketsLiveFrom: new Date(formData.ticketsLiveFrom).toISOString(),
-        requiresRegistration: formData.requiresRegistration,
-        sameTicketsAllDays: sameTicketsAllDays,
-        earlyBird: formData.enableEarlyBird
+        requiresRegistration: isFreeEvent ? requiresRegistration : false,
+        sameTicketsAllDays: true,
+        earlyBird: !isFreeEvent && formData.enableEarlyBird
           ? {
               discount: parseFloat(formData.earlyBirdDiscount),
               deadline: new Date(formData.earlyBirdDeadline).toISOString(),
             }
           : undefined,
-        flashSale: formData.enableFlashSale
+        flashSale: !isFreeEvent && formData.enableFlashSale
           ? {
               startDate: new Date(formData.flashSaleStartDate).toISOString(),
               endDate: new Date(formData.flashSaleEndDate).toISOString(),
               discount: parseFloat(formData.flashSaleDiscount),
             }
           : undefined,
-        groupBooking: formData.enableGroupBooking
+        groupBooking: !isFreeEvent && formData.enableGroupBooking
           ? {
               discount: parseFloat(formData.groupDiscount),
               minTickets: parseInt(formData.groupMinTickets),
@@ -289,29 +376,19 @@ const VendorEventForm = () => {
         savedEvent = await createEvent(eventData, vendor.id, vendor.organization_name);
       }
 
-      // Save event schedules first (to get their IDs for category linking)
-      let savedScheduleIds: Record<string, string> = {};
-      if (isMultiDay && eventSchedules.length > 0 && savedEvent) {
+      // Save event schedules for multi-day events
+      if (eventDurationType === "multi" && eventSchedules.length > 0 && savedEvent) {
         for (const s of eventSchedules) {
-          const { data: schedData, error: schedError } = await supabase
-            .from('event_schedules')
-            .insert({
-              event_id: savedEvent.id,
-              day_date: s.dayDate,
-              start_time: s.startTime,
-              end_time: s.endTime,
-            })
-            .select()
-            .single();
-
-          if (schedError) {
-            console.error('Error saving schedule:', schedError);
-          } else if (schedData) {
-            savedScheduleIds[s.id] = schedData.id;
-          }
+          await supabase.from('event_schedules').insert({
+            event_id: savedEvent.id,
+            day_date: s.dayDate,
+            start_time: s.startTime,
+            end_time: s.endTime,
+          });
         }
       }
 
+      // Save ticket categories for paid events
       if (!isFreeEvent && ticketCategories.length > 0 && savedEvent) {
         const categoriesToInsert = ticketCategories.map(cat => ({
           event_id: savedEvent.id,
@@ -320,7 +397,6 @@ const VendorEventForm = () => {
           quantity: cat.quantity,
           description: cat.description || null,
           sold: 0,
-          schedule_id: cat.scheduleId ? (savedScheduleIds[cat.scheduleId] || null) : null,
         }));
 
         const { error: catError } = await supabase
@@ -355,54 +431,38 @@ const VendorEventForm = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Basic Details */}
+            <form onSubmit={handleSubmit} className="space-y-8">
+              
+              {/* STEP 1: Basic Event Details */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Event Details</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">1</div>
+                  <h3 className="text-lg font-semibold">Event Details</h3>
+                </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="name">Event Name *</Label>
+                  <Label htmlFor="name">Event Title *</Label>
                   <Input
                     id="name"
                     required
+                    placeholder="Enter event name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description *</Label>
+                  <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
-                    required
-                    rows={4}
+                    rows={3}
+                    placeholder="Describe your event"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Event Start Date *</Label>
-                    <Input
-                      id="startDate"
-                      type="datetime-local"
-                      required
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">Event End Date (Optional)</Label>
-                    <Input
-                      id="endDate"
-                      type="datetime-local"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="category">Category *</Label>
                     <Select
@@ -427,113 +487,258 @@ const VendorEventForm = () => {
                     <Input
                       id="city"
                       required
+                      placeholder="e.g., Karachi"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     />
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2">
                     <Label htmlFor="venue">Venue *</Label>
                     <Input
                       id="venue"
                       required
+                      placeholder="e.g., Expo Center"
                       value={formData.venue}
                       onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
                     />
                   </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="ticketsLiveFrom">Tickets Live From *</Label>
-                    <Input
-                      id="ticketsLiveFrom"
-                      type="datetime-local"
-                      required
-                      value={formData.ticketsLiveFrom}
-                      onChange={(e) =>
-                        setFormData({ ...formData, ticketsLiveFrom: e.target.value })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      If set to future date, event will be scheduled
-                    </p>
-                  </div>
                 </div>
               </div>
 
-              {/* Multi-Day Scheduling */}
+              {/* STEP 2: Date & Time */}
               <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-base sm:text-lg font-semibold">Multi-Day Event</Label>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      Enable to set different timings for each day
-                    </p>
-                  </div>
-                  <Switch checked={isMultiDay} onCheckedChange={setIsMultiDay} />
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
+                  <h3 className="text-lg font-semibold">Date & Time</h3>
                 </div>
 
-                {isMultiDay && (
+                <div className="space-y-4">
+                  <Label className="text-base">Is this a single-day or multi-day event?</Label>
+                  <RadioGroup 
+                    value={eventDurationType} 
+                    onValueChange={(v) => setEventDurationType(v as "single" | "multi")}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="single" id="single-day" />
+                      <Label htmlFor="single-day" className="cursor-pointer">Single-Day Event</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="multi" id="multi-day" />
+                      <Label htmlFor="multi-day" className="cursor-pointer">Multi-Day Event</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Single-Day Event */}
+                {eventDurationType === "single" && (
+                  <Card className="border-dashed">
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4" /> Date *
+                          </Label>
+                          <Input
+                            type="date"
+                            value={singleDayData.date}
+                            onChange={(e) => setSingleDayData({ ...singleDayData, date: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" /> Start Time *
+                          </Label>
+                          <Input
+                            type="time"
+                            value={singleDayData.startTime}
+                            onChange={(e) => setSingleDayData({ ...singleDayData, startTime: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" /> End Time *
+                          </Label>
+                          <Input
+                            type="time"
+                            value={singleDayData.endTime}
+                            onChange={(e) => setSingleDayData({ ...singleDayData, endTime: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Multi-Day Event */}
+                {eventDurationType === "multi" && (
                   <div className="space-y-4">
+                    <div className="space-y-3">
+                      <Label className="text-base">How would you like to select dates?</Label>
+                      <RadioGroup 
+                        value={multiDayDateMode} 
+                        onValueChange={(v) => {
+                          setMultiDayDateMode(v as "range" | "specific");
+                          setEventSchedules([]);
+                        }}
+                        className="flex gap-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="range" id="date-range" />
+                          <Label htmlFor="date-range" className="cursor-pointer">Date Range</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="specific" id="specific-dates" />
+                          <Label htmlFor="specific-dates" className="cursor-pointer">Pick Specific Dates</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {/* Date Range Mode */}
+                    {multiDayDateMode === "range" && (
+                      <Card className="border-dashed">
+                        <CardContent className="p-4 space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Start Date</Label>
+                              <Input
+                                type="date"
+                                value={dateRangeStart}
+                                onChange={(e) => setDateRangeStart(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>End Date</Label>
+                              <Input
+                                type="date"
+                                value={dateRangeEnd}
+                                onChange={(e) => setDateRangeEnd(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                            <div>
+                              <Label className="text-sm font-medium">Same timings for all days?</Label>
+                              <p className="text-xs text-muted-foreground">
+                                Toggle off to set different timings for each day
+                              </p>
+                            </div>
+                            <Switch 
+                              checked={sameTimingsAllDays} 
+                              onCheckedChange={setSameTimingsAllDays} 
+                            />
+                          </div>
+
+                          {sameTimingsAllDays && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Start Time (All Days)</Label>
+                                <Input
+                                  type="time"
+                                  value={commonTiming.startTime}
+                                  onChange={(e) => setCommonTiming({ ...commonTiming, startTime: e.target.value })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>End Time (All Days)</Label>
+                                <Input
+                                  type="time"
+                                  value={commonTiming.endTime}
+                                  onChange={(e) => setCommonTiming({ ...commonTiming, endTime: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={generateSchedulesFromRange}
+                            disabled={!dateRangeStart || !dateRangeEnd || (sameTimingsAllDays && (!commonTiming.startTime || !commonTiming.endTime))}
+                            className="w-full"
+                          >
+                            Generate Schedules
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Specific Dates Mode */}
+                    {multiDayDateMode === "specific" && (
+                      <Card className="border-dashed">
+                        <CardContent className="p-4 space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-2">
+                              <Label>Date</Label>
+                              <Input 
+                                type="date" 
+                                value={currentSchedule.dayDate} 
+                                onChange={(e) => setCurrentSchedule({...currentSchedule, dayDate: e.target.value})} 
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Start Time</Label>
+                              <Input 
+                                type="time" 
+                                value={currentSchedule.startTime} 
+                                onChange={(e) => setCurrentSchedule({...currentSchedule, startTime: e.target.value})} 
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>End Time</Label>
+                              <Input 
+                                type="time" 
+                                value={currentSchedule.endTime} 
+                                onChange={(e) => setCurrentSchedule({...currentSchedule, endTime: e.target.value})} 
+                              />
+                            </div>
+                          </div>
+                          <Button type="button" variant="outline" onClick={handleAddSchedule} className="w-full">
+                            <Plus className="h-4 w-4 mr-2" /> Add Day
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Display added schedules */}
                     {eventSchedules.length > 0 && (
                       <div className="space-y-2">
-                        {eventSchedules.map((schedule) => (
-                          <Card key={schedule.id}>
-                            <CardContent className="p-3 flex items-center justify-between">
-                              <div className="text-sm">
-                                <span className="font-medium">{schedule.dayDate}</span>
-                                <span className="text-muted-foreground ml-2">
-                                  {schedule.startTime} - {schedule.endTime}
-                                </span>
-                              </div>
-                              <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteSchedule(schedule.id)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    )}
-                    <Card className="border-dashed">
-                      <CardContent className="p-4 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div className="space-y-2">
-                            <Label>Date</Label>
-                            <Input type="date" value={currentSchedule.dayDate} onChange={(e) => setCurrentSchedule({...currentSchedule, dayDate: e.target.value})} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Start Time</Label>
-                            <Input type="time" value={currentSchedule.startTime} onChange={(e) => setCurrentSchedule({...currentSchedule, startTime: e.target.value})} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>End Time</Label>
-                            <Input type="time" value={currentSchedule.endTime} onChange={(e) => setCurrentSchedule({...currentSchedule, endTime: e.target.value})} />
-                          </div>
-                        </div>
-                        <Button type="button" variant="outline" onClick={handleAddSchedule} className="w-full">
-                          <Plus className="h-4 w-4 mr-2" /> Add Day Schedule
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    {/* Ticket Type Toggle - Same for all days or separate per day */}
-                    {!isFreeEvent && eventSchedules.length > 0 && (
-                      <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                        <div className="space-y-0.5">
-                          <Label className="text-sm font-semibold">Ticket Type</Label>
-                          <p className="text-xs text-muted-foreground">
-                            {sameTicketsAllDays 
-                              ? "Same tickets available for all days" 
-                              : "Different tickets for each day"
-                            }
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs ${sameTicketsAllDays ? 'text-primary font-medium' : 'text-muted-foreground'}`}>Same</span>
-                          <Switch 
-                            checked={!sameTicketsAllDays} 
-                            onCheckedChange={(checked) => setSameTicketsAllDays(!checked)} 
-                          />
-                          <span className={`text-xs ${!sameTicketsAllDays ? 'text-primary font-medium' : 'text-muted-foreground'}`}>Per Day</span>
+                        <Label className="text-sm font-medium">Event Schedule ({eventSchedules.length} days)</Label>
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {eventSchedules.map((schedule) => (
+                            <Card key={schedule.id}>
+                              <CardContent className="p-3 flex items-center justify-between">
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                                  <span className="font-medium">{schedule.dayDate}</span>
+                                  {!sameTimingsAllDays && multiDayDateMode === "range" ? (
+                                    <>
+                                      <Input
+                                        type="time"
+                                        value={schedule.startTime}
+                                        onChange={(e) => updateScheduleTiming(schedule.id, "startTime", e.target.value)}
+                                        className="h-8"
+                                      />
+                                      <Input
+                                        type="time"
+                                        value={schedule.endTime}
+                                        onChange={(e) => updateScheduleTiming(schedule.id, "endTime", e.target.value)}
+                                        className="h-8"
+                                      />
+                                    </>
+                                  ) : (
+                                    <span className="text-muted-foreground col-span-2">
+                                      {schedule.startTime} - {schedule.endTime}
+                                    </span>
+                                  )}
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteSchedule(schedule.id)}>
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </CardContent>
+                            </Card>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -541,9 +746,355 @@ const VendorEventForm = () => {
                 )}
               </div>
 
-              {/* Image Upload */}
-              <div className="space-y-2">
-                <Label>Event Image (Optional)</Label>
+              {/* STEP 3: Event Type (Paid/Free) */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">3</div>
+                  <h3 className="text-lg font-semibold">Event Type</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <Label className="text-base">Is this a paid or free event?</Label>
+                  <RadioGroup 
+                    value={isFreeEvent ? "free" : "paid"} 
+                    onValueChange={(v) => {
+                      setIsFreeEvent(v === "free");
+                      if (v === "free") setTicketCategories([]);
+                    }}
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="paid" id="paid-event" />
+                      <Label htmlFor="paid-event" className="cursor-pointer">Paid Event</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="free" id="free-event" />
+                      <Label htmlFor="free-event" className="cursor-pointer">Free Event</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {/* Paid Event - Ticket Categories */}
+                {!isFreeEvent && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Set up your ticket categories. The same tickets will be available for all event days.
+                    </p>
+
+                    {/* Saved Categories */}
+                    {ticketCategories.length > 0 && (
+                      <div className="space-y-3">
+                        {ticketCategories.map((category) => (
+                          <Card key={category.id} className="relative">
+                            <CardContent className="p-4">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2"
+                                onClick={() => handleDeleteCategory(category.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pr-10">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Type</p>
+                                  <p className="font-semibold">{category.name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Price</p>
+                                  <p className="font-semibold">Rs. {category.price}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Quantity</p>
+                                  <p className="font-semibold">{category.quantity}</p>
+                                </div>
+                                <div className="col-span-2 md:col-span-1">
+                                  <p className="text-xs text-muted-foreground">Description</p>
+                                  <p className="text-sm">{category.description || "N/A"}</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add New Category */}
+                    <Card className="border-dashed">
+                      <CardContent className="p-4 space-y-4">
+                        <h4 className="font-medium">Add Ticket Category</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="catName">Ticket Type Name *</Label>
+                            <Input
+                              id="catName"
+                              placeholder="e.g., VIP, General, Premium"
+                              value={currentCategory.name}
+                              onChange={(e) => setCurrentCategory({ ...currentCategory, name: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="catPrice">Price (Rs.) *</Label>
+                            <Input
+                              id="catPrice"
+                              type="number"
+                              min="0"
+                              value={currentCategory.price}
+                              onChange={(e) => setCurrentCategory({ ...currentCategory, price: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="catQuantity">Quantity *</Label>
+                            <Input
+                              id="catQuantity"
+                              type="number"
+                              min="1"
+                              value={currentCategory.quantity}
+                              onChange={(e) => setCurrentCategory({ ...currentCategory, quantity: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="catDesc">Description</Label>
+                            <Input
+                              id="catDesc"
+                              placeholder="Optional description"
+                              value={currentCategory.description}
+                              onChange={(e) => setCurrentCategory({ ...currentCategory, description: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleAddCategory}
+                          className="w-full"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add This Category
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Promotional Options */}
+                    <div className="space-y-4 pt-4">
+                      <h4 className="font-medium">Promotional Options</h4>
+                      
+                      {/* Early Bird */}
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="enableEarlyBird"
+                            checked={formData.enableEarlyBird}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, enableEarlyBird: checked as boolean })
+                            }
+                          />
+                          <Label htmlFor="enableEarlyBird" className="cursor-pointer">
+                            Enable Early Bird Pricing
+                          </Label>
+                        </div>
+
+                        {formData.enableEarlyBird && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="earlyBirdDiscount">Discount (%)</Label>
+                              <Input
+                                id="earlyBirdDiscount"
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={formData.earlyBirdDiscount}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, earlyBirdDiscount: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="earlyBirdDeadline">Deadline</Label>
+                              <Input
+                                id="earlyBirdDeadline"
+                                type="datetime-local"
+                                value={formData.earlyBirdDeadline}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, earlyBirdDeadline: e.target.value })
+                                }
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Flash Sale */}
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="enableFlashSale"
+                            checked={formData.enableFlashSale}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, enableFlashSale: checked as boolean })
+                            }
+                          />
+                          <Label htmlFor="enableFlashSale" className="cursor-pointer">
+                            Enable Flash Sale
+                          </Label>
+                        </div>
+
+                        {formData.enableFlashSale && (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ml-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="flashSaleStartDate">Start Date</Label>
+                              <Input
+                                id="flashSaleStartDate"
+                                type="datetime-local"
+                                value={formData.flashSaleStartDate}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, flashSaleStartDate: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="flashSaleEndDate">End Date</Label>
+                              <Input
+                                id="flashSaleEndDate"
+                                type="datetime-local"
+                                value={formData.flashSaleEndDate}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, flashSaleEndDate: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="flashSaleDiscount">Discount (%)</Label>
+                              <Input
+                                id="flashSaleDiscount"
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={formData.flashSaleDiscount}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, flashSaleDiscount: e.target.value })
+                                }
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Group Booking */}
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="enableGroupBooking"
+                            checked={formData.enableGroupBooking}
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, enableGroupBooking: checked as boolean })
+                            }
+                          />
+                          <Label htmlFor="enableGroupBooking" className="cursor-pointer">
+                            Enable Group Booking Discount
+                          </Label>
+                        </div>
+
+                        {formData.enableGroupBooking && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
+                            <div className="space-y-2">
+                              <Label htmlFor="groupDiscount">Discount (%)</Label>
+                              <Input
+                                id="groupDiscount"
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={formData.groupDiscount}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, groupDiscount: e.target.value })
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="groupMinTickets">Minimum Tickets</Label>
+                              <Input
+                                id="groupMinTickets"
+                                type="number"
+                                min="2"
+                                value={formData.groupMinTickets}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, groupMinTickets: e.target.value })
+                                }
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Free Event Options */}
+                {isFreeEvent && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="totalTickets">Total Capacity (Optional)</Label>
+                      <Input
+                        id="totalTickets"
+                        type="number"
+                        min="0"
+                        placeholder="Enter max attendees (leave empty for unlimited)"
+                        value={formData.totalTickets}
+                        onChange={(e) => setFormData({ ...formData, totalTickets: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                      <div>
+                        <Label className="text-sm font-medium">Require User Registration?</Label>
+                        <p className="text-xs text-muted-foreground">
+                          {requiresRegistration 
+                            ? "Users must register with their name to get a ticket" 
+                            : "Event is publicly visible, no registration needed"
+                          }
+                        </p>
+                      </div>
+                      <Switch 
+                        checked={requiresRegistration} 
+                        onCheckedChange={setRequiresRegistration} 
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* STEP 4: Tickets Live From */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">4</div>
+                  <h3 className="text-lg font-semibold">Publication Settings</h3>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ticketsLiveFrom">Tickets Live From *</Label>
+                  <Input
+                    id="ticketsLiveFrom"
+                    type="datetime-local"
+                    required
+                    value={formData.ticketsLiveFrom}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ticketsLiveFrom: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    If set to a future date, the event will be scheduled and not visible to users until then
+                  </p>
+                </div>
+              </div>
+
+              {/* STEP 5: Event Image */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">5</div>
+                  <h3 className="text-lg font-semibold">Event Image (Optional)</h3>
+                </div>
+
                 <div className="border-2 border-dashed rounded-lg p-6 text-center">
                   {imagePreview ? (
                     <div className="relative">
@@ -579,336 +1130,16 @@ const VendorEventForm = () => {
                 </div>
               </div>
 
-              {/* Free Event Toggle */}
-              <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="freeEvent" className="text-lg font-semibold">Free Event</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Toggle on if this event has no ticket system (free entry)
-                    </p>
-                  </div>
-                  <Switch
-                    id="freeEvent"
-                    checked={isFreeEvent}
-                    onCheckedChange={(checked) => {
-                      setIsFreeEvent(checked);
-                      if (checked) {
-                        setTicketCategories([]);
-                      }
-                    }}
-                  />
-                </div>
-
-                {/* Free Event - Total Capacity */}
-                {isFreeEvent && (
-                  <div className="space-y-2">
-                    <Label htmlFor="totalTickets">Total Capacity (Optional)</Label>
-                    <Input
-                      id="totalTickets"
-                      type="number"
-                      min="0"
-                      placeholder="Enter max attendees (leave empty for unlimited)"
-                      value={formData.totalTickets}
-                      onChange={(e) => setFormData({ ...formData, totalTickets: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Set the maximum number of attendees, or leave empty for unlimited
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Ticket Categories - Only for paid events */}
-              {!isFreeEvent && (
-              <div className="space-y-4 border-t pt-6">
-                <h3 className="text-lg font-semibold">Ticket Categories *</h3>
-                
-                {/* Saved Categories */}
-                {ticketCategories.length > 0 && (
-                  <div className="space-y-3">
-                    {ticketCategories.map((category) => (
-                      <Card key={category.id} className="relative">
-                        <CardContent className="p-4">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-2 right-2"
-                            onClick={() => handleDeleteCategory(category.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pr-10">
-                            <div>
-                              <p className="text-xs text-muted-foreground">Type</p>
-                              <p className="font-semibold">{category.name}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Price</p>
-                              <p className="font-semibold">Rs. {category.price}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Quantity</p>
-                              <p className="font-semibold">{category.quantity}</p>
-                            </div>
-                            <div className="col-span-2 md:col-span-1">
-                              <p className="text-xs text-muted-foreground">Description</p>
-                              <p className="text-sm">{category.description || "N/A"}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add New Category */}
-                <Card className="border-dashed">
-                  <CardContent className="p-4 space-y-4">
-                    <h4 className="font-medium">Add Ticket Category</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="catName">Ticket Type Name *</Label>
-                        <Input
-                          id="catName"
-                          placeholder="e.g., VIP, General, Premium"
-                          value={currentCategory.name}
-                          onChange={(e) => setCurrentCategory({ ...currentCategory, name: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="catPrice">Price (Rs.) *</Label>
-                        <Input
-                          id="catPrice"
-                          type="number"
-                          min="0"
-                          value={currentCategory.price}
-                          onChange={(e) => setCurrentCategory({ ...currentCategory, price: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="catQuantity">Quantity *</Label>
-                        <Input
-                          id="catQuantity"
-                          type="number"
-                          min="1"
-                          value={currentCategory.quantity}
-                          onChange={(e) => setCurrentCategory({ ...currentCategory, quantity: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="catDesc">Description</Label>
-                        <Input
-                          id="catDesc"
-                          placeholder="Optional description"
-                          value={currentCategory.description}
-                          onChange={(e) => setCurrentCategory({ ...currentCategory, description: e.target.value })}
-                        />
-                      </div>
-                      {/* Day Selection for day-wise tickets */}
-                      {isMultiDay && !sameTicketsAllDays && eventSchedules.length > 0 && (
-                        <div className="space-y-2 md:col-span-2">
-                          <Label>For Day *</Label>
-                          <Select value={selectedScheduleForCategory} onValueChange={setSelectedScheduleForCategory}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select day" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {eventSchedules.map((schedule) => (
-                                <SelectItem key={schedule.id} value={schedule.id}>
-                                  {schedule.dayDate} ({schedule.startTime} - {schedule.endTime})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleAddCategory}
-                      className="w-full"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add This Category
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-              )}
-
-              {/* Promotional Options - Only for paid events */}
-              {!isFreeEvent && (
-              <>
-              {/* Early Bird */}
-              <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="enableEarlyBird"
-                    checked={formData.enableEarlyBird}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, enableEarlyBird: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="enableEarlyBird" className="cursor-pointer">
-                    Enable Early Bird Pricing
-                  </Label>
-                </div>
-
-                {formData.enableEarlyBird && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="earlyBirdDiscount">Discount (%)</Label>
-                      <Input
-                        id="earlyBirdDiscount"
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={formData.earlyBirdDiscount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, earlyBirdDiscount: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="earlyBirdDeadline">Deadline</Label>
-                      <Input
-                        id="earlyBirdDeadline"
-                        type="datetime-local"
-                        value={formData.earlyBirdDeadline}
-                        onChange={(e) =>
-                          setFormData({ ...formData, earlyBirdDeadline: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Flash Sale */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="enableFlashSale"
-                    checked={formData.enableFlashSale}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, enableFlashSale: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="enableFlashSale" className="cursor-pointer">
-                    Enable Flash Sale
-                  </Label>
-                </div>
-
-                {formData.enableFlashSale && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 ml-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="flashSaleStartDate">Start Date</Label>
-                      <Input
-                        id="flashSaleStartDate"
-                        type="datetime-local"
-                        value={formData.flashSaleStartDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, flashSaleStartDate: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="flashSaleEndDate">End Date</Label>
-                      <Input
-                        id="flashSaleEndDate"
-                        type="datetime-local"
-                        value={formData.flashSaleEndDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, flashSaleEndDate: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="flashSaleDiscount">Discount (%)</Label>
-                      <Input
-                        id="flashSaleDiscount"
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={formData.flashSaleDiscount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, flashSaleDiscount: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Group Booking */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="enableGroupBooking"
-                    checked={formData.enableGroupBooking}
-                    onCheckedChange={(checked) =>
-                      setFormData({ ...formData, enableGroupBooking: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="enableGroupBooking" className="cursor-pointer">
-                    Enable Group Booking Discount
-                  </Label>
-                </div>
-
-                {formData.enableGroupBooking && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ml-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="groupDiscount">Discount (%)</Label>
-                      <Input
-                        id="groupDiscount"
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={formData.groupDiscount}
-                        onChange={(e) =>
-                          setFormData({ ...formData, groupDiscount: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="groupMinTickets">Minimum Tickets</Label>
-                      <Input
-                        id="groupMinTickets"
-                        type="number"
-                        min="2"
-                        value={formData.groupMinTickets}
-                        onChange={(e) =>
-                          setFormData({ ...formData, groupMinTickets: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-              </>
-              )}
-
-              {/* Submit Buttons */}
-              <div className="flex gap-4 pt-6 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate("/vendor/events")}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
+              {/* Submit Button */}
+              <div className="border-t pt-6">
                 <Button
                   type="submit"
-                  className="flex-1 bg-gradient-accent hover:opacity-90"
+                  className="w-full py-6 text-lg"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       {isEdit ? "Updating..." : "Creating..."}
                     </>
                   ) : (
