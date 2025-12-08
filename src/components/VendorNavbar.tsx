@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Link, useNavigate } from "react-router-dom";
+import logo from "@/assets/logo.png";
 
 export const VendorNavbar = () => {
   const navigate = useNavigate();
@@ -27,7 +28,8 @@ export const VendorNavbar = () => {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/vendor/dashboard" className="flex items-center">
+        <Link to="/vendor/dashboard" className="flex items-center gap-2">
+          <img src={logo} alt="event.pk" className="h-8 w-8" />
           <span className="text-lg sm:text-xl font-bold bg-gradient-primary bg-clip-text text-transparent font-oughter">
             event.pk
           </span>
