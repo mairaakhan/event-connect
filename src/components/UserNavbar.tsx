@@ -2,7 +2,6 @@ import { Menu } from "lucide-react";
 import { Button } from "./ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Link, useNavigate } from "react-router-dom";
-import logo from "@/assets/logo.png";
 
 export const UserNavbar = () => {
   const navigate = useNavigate();
@@ -14,8 +13,7 @@ export const UserNavbar = () => {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="event.pk" className="h-8 w-8" />
+        <Link to="/" className="flex items-center">
           <span className="text-lg sm:text-xl font-bold bg-gradient-primary bg-clip-text text-transparent font-oughter">
             event.pk
           </span>
