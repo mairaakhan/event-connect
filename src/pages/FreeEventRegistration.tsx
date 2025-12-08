@@ -89,7 +89,7 @@ const FreeEventRegistration = () => {
           event_name: event.name,
           total_amount: 0,
           discount_applied: 0,
-          payment_method: "free",
+          payment_method: null,
           status: "paid",
           expires_at: expiresAt.toISOString(),
           vendor_id: event.vendorId || null,
