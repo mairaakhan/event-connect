@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { UserNavbar } from "@/components/UserNavbar";
@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, ArrowLeft, CheckCircle, Gift, Calendar, MapPin } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle, Gift, Calendar, MapPin, Download, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { TicketDownloadCard } from "@/components/ui/ticket-confirmation-card";
 import type { Event } from "@/types/event";
 
 const FreeEventRegistration = () => {
@@ -20,6 +21,7 @@ const FreeEventRegistration = () => {
   const [fullName, setFullName] = useState("");
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const ticketRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -151,7 +153,60 @@ const FreeEventRegistration = () => {
     );
   }
 
-  if (registrationComplete && bookingId) {
+  const handleDownloadTicket = async () => {
+    if (!ticketRef.current) return;
+    
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(ticketRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `registration-${bookingId}.png`;
+          link.click();
+          URL.revokeObjectURL(url);
+          
+          toast.success("Pass downloaded!", {
+            description: "Your registration pass has been saved."
+          });
+        }
+      });
+    } catch (error) {
+      toast.error("Failed to download pass");
+      console.error(error);
+    }
+  };
+
+  const handleShareEvent = async () => {
+    const shareData = {
+      title: `Registration for ${event?.name}`,
+      text: `I just registered for ${event?.name}!`,
+      url: window.location.origin + `/event/${event?.id}`,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        toast.success("Event link copied to clipboard!");
+      }
+    } catch (error) {
+      // User cancelled share or error occurred, copy to clipboard as fallback
+      await navigator.clipboard.writeText(shareData.url);
+      toast.success("Event link copied to clipboard!");
+    }
+  };
+
+  if (registrationComplete && bookingId && event) {
     return (
       <div className="min-h-screen bg-gradient-hero">
         <UserNavbar />
@@ -176,27 +231,18 @@ const FreeEventRegistration = () => {
 
               <div className="flex flex-col gap-3">
                 <Button 
-                  onClick={() => navigate(`/booking-confirmation/${bookingId}`)}
-                  className="w-full"
+                  onClick={handleDownloadTicket}
+                  className="w-full bg-emerald-500 hover:bg-emerald-600"
                 >
-                  Download Ticket
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Pass
                 </Button>
                 <Button 
                   variant="outline"
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: `Registration for ${event.name}`,
-                        text: `I just registered for ${event.name}!`,
-                        url: window.location.origin + `/event/${event.id}`,
-                      });
-                    } else {
-                      navigator.clipboard.writeText(window.location.origin + `/event/${event.id}`);
-                      toast.success("Event link copied to clipboard!");
-                    }
-                  }}
+                  onClick={handleShareEvent}
                   className="w-full"
                 >
+                  <Share2 className="mr-2 h-4 w-4" />
                   Share Event
                 </Button>
                 <Button 
@@ -209,6 +255,21 @@ const FreeEventRegistration = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Hidden Ticket for Download */}
+          <div className="fixed left-[-9999px] top-0">
+            <TicketDownloadCard
+              ref={ticketRef}
+              ticketId={bookingId}
+              eventName={event.name}
+              eventDate={new Date(event.startDate)}
+              eventVenue={event.venue}
+              eventCity={event.city}
+              items={[{ categoryName: 'Free Registration', quantity: 1, price: 0 }]}
+              totalAmount={0}
+              paidBy={fullName}
+            />
+          </div>
         </div>
       </div>
     );
