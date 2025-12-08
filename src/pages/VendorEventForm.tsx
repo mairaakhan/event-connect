@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Upload, X, Trash2, Plus, Loader2, Calendar, Clock } from "lucide-react";
+import { Upload, X, Trash2, Plus, Loader2, Calendar, Clock, ArrowLeft } from "lucide-react";
 import { TicketCategory } from "@/types/event";
 import { createEvent, updateEvent } from "@/hooks/useEvents";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,7 +69,6 @@ const VendorEventForm = () => {
   const [multiDayDateMode, setMultiDayDateMode] = useState<"range" | "specific">("range");
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
-  const [sameTimingsAllDays, setSameTimingsAllDays] = useState(true);
   const [commonTiming, setCommonTiming] = useState({ startTime: "", endTime: "" });
   const [eventSchedules, setEventSchedules] = useState<Array<{
     id: string;
@@ -237,8 +236,7 @@ const VendorEventForm = () => {
 
   // Generate schedules from date range
   const generateSchedulesFromRange = () => {
-    if (!dateRangeStart || !dateRangeEnd) return;
-    if (!sameTimingsAllDays && (!commonTiming.startTime || !commonTiming.endTime)) return;
+    if (!dateRangeStart || !dateRangeEnd || !commonTiming.startTime || !commonTiming.endTime) return;
 
     const start = new Date(dateRangeStart);
     const end = new Date(dateRangeEnd);
@@ -249,17 +247,13 @@ const VendorEventForm = () => {
       schedules.push({
         id: Date.now().toString() + dateStr,
         dayDate: dateStr,
-        startTime: sameTimingsAllDays ? commonTiming.startTime : "",
-        endTime: sameTimingsAllDays ? commonTiming.endTime : "",
+        startTime: commonTiming.startTime,
+        endTime: commonTiming.endTime,
       });
     }
     
     setEventSchedules(schedules);
-    if (sameTimingsAllDays) {
-      toast.success(`Generated ${schedules.length} day schedules`);
-    } else {
-      toast.info("Schedules generated. Please set timings for each day.");
-    }
+    toast.success(`Generated ${schedules.length} day schedules`);
   };
 
   const updateScheduleTiming = (scheduleId: string, field: "startTime" | "endTime", value: string) => {
@@ -424,6 +418,17 @@ const VendorEventForm = () => {
       <VendorNavbar />
       
       <div className="container py-8">
+        {isEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate("/vendor/events")}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Events
+          </Button>
+        )}
         <Card className="max-w-4xl mx-auto">
           <CardHeader>
             <CardTitle className="text-2xl">
@@ -435,10 +440,7 @@ const VendorEventForm = () => {
               
               {/* STEP 1: Basic Event Details */}
               <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">1</div>
-                  <h3 className="text-lg font-semibold">Event Details</h3>
-                </div>
+                <h3 className="text-lg font-semibold">Event Details</h3>
                 
                 <div className="space-y-2">
                   <Label htmlFor="name">Event Title *</Label>
@@ -508,10 +510,7 @@ const VendorEventForm = () => {
 
               {/* STEP 2: Date & Time */}
               <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
-                  <h3 className="text-lg font-semibold">Date & Time</h3>
-                </div>
+                <h3 className="text-lg font-semibold">Date & Time</h3>
 
                 <div className="space-y-4">
                   <Label className="text-base">Is this a single-day or multi-day event?</Label>
@@ -582,15 +581,15 @@ const VendorEventForm = () => {
                           setMultiDayDateMode(v as "range" | "specific");
                           setEventSchedules([]);
                         }}
-                        className="flex gap-6"
+                        className="flex flex-col gap-3"
                       >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="range" id="date-range" />
-                          <Label htmlFor="date-range" className="cursor-pointer">Date Range</Label>
+                          <Label htmlFor="date-range" className="cursor-pointer">Date range with same timings for all days</Label>
                         </div>
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="specific" id="specific-dates" />
-                          <Label htmlFor="specific-dates" className="cursor-pointer">Pick Specific Dates</Label>
+                          <Label htmlFor="specific-dates" className="cursor-pointer">Days with different timings</Label>
                         </div>
                       </RadioGroup>
                     </div>
@@ -618,45 +617,30 @@ const VendorEventForm = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                            <div>
-                              <Label className="text-sm font-medium">Same timings for all days?</Label>
-                              <p className="text-xs text-muted-foreground">
-                                Toggle off to set different timings for each day
-                              </p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Start Time (All Days)</Label>
+                              <Input
+                                type="time"
+                                value={commonTiming.startTime}
+                                onChange={(e) => setCommonTiming({ ...commonTiming, startTime: e.target.value })}
+                              />
                             </div>
-                            <Switch 
-                              checked={sameTimingsAllDays} 
-                              onCheckedChange={setSameTimingsAllDays} 
-                            />
+                            <div className="space-y-2">
+                              <Label>End Time (All Days)</Label>
+                              <Input
+                                type="time"
+                                value={commonTiming.endTime}
+                                onChange={(e) => setCommonTiming({ ...commonTiming, endTime: e.target.value })}
+                              />
+                            </div>
                           </div>
-
-                          {sameTimingsAllDays && (
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Start Time (All Days)</Label>
-                                <Input
-                                  type="time"
-                                  value={commonTiming.startTime}
-                                  onChange={(e) => setCommonTiming({ ...commonTiming, startTime: e.target.value })}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>End Time (All Days)</Label>
-                                <Input
-                                  type="time"
-                                  value={commonTiming.endTime}
-                                  onChange={(e) => setCommonTiming({ ...commonTiming, endTime: e.target.value })}
-                                />
-                              </div>
-                            </div>
-                          )}
 
                           <Button 
                             type="button" 
                             variant="outline" 
                             onClick={generateSchedulesFromRange}
-                            disabled={!dateRangeStart || !dateRangeEnd || (sameTimingsAllDays && (!commonTiming.startTime || !commonTiming.endTime))}
+                            disabled={!dateRangeStart || !dateRangeEnd || !commonTiming.startTime || !commonTiming.endTime}
                             className="w-full"
                           >
                             Generate Schedules
@@ -712,26 +696,9 @@ const VendorEventForm = () => {
                               <CardContent className="p-3 flex items-center justify-between">
                                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
                                   <span className="font-medium">{schedule.dayDate}</span>
-                                  {!sameTimingsAllDays && multiDayDateMode === "range" ? (
-                                    <>
-                                      <Input
-                                        type="time"
-                                        value={schedule.startTime}
-                                        onChange={(e) => updateScheduleTiming(schedule.id, "startTime", e.target.value)}
-                                        className="h-8"
-                                      />
-                                      <Input
-                                        type="time"
-                                        value={schedule.endTime}
-                                        onChange={(e) => updateScheduleTiming(schedule.id, "endTime", e.target.value)}
-                                        className="h-8"
-                                      />
-                                    </>
-                                  ) : (
-                                    <span className="text-muted-foreground col-span-2">
-                                      {schedule.startTime} - {schedule.endTime}
-                                    </span>
-                                  )}
+                                  <span className="text-muted-foreground col-span-2">
+                                    {schedule.startTime} - {schedule.endTime}
+                                  </span>
                                 </div>
                                 <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteSchedule(schedule.id)}>
                                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -748,10 +715,7 @@ const VendorEventForm = () => {
 
               {/* STEP 3: Event Type (Paid/Free) */}
               <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">3</div>
-                  <h3 className="text-lg font-semibold">Event Type</h3>
-                </div>
+                <h3 className="text-lg font-semibold">Event Type</h3>
 
                 <div className="space-y-4">
                   <Label className="text-base">Is this a paid or free event?</Label>
@@ -1066,10 +1030,7 @@ const VendorEventForm = () => {
 
               {/* STEP 4: Tickets Live From */}
               <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">4</div>
-                  <h3 className="text-lg font-semibold">Publication Settings</h3>
-                </div>
+                <h3 className="text-lg font-semibold">Publication Settings</h3>
 
                 <div className="space-y-2">
                   <Label htmlFor="ticketsLiveFrom">Tickets Live From *</Label>
@@ -1090,10 +1051,7 @@ const VendorEventForm = () => {
 
               {/* STEP 5: Event Image */}
               <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">5</div>
-                  <h3 className="text-lg font-semibold">Event Image (Optional)</h3>
-                </div>
+                <h3 className="text-lg font-semibold">Event Image (Optional)</h3>
 
                 <div className="border-2 border-dashed rounded-lg p-6 text-center">
                   {imagePreview ? (

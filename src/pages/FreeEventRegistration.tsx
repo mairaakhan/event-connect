@@ -174,17 +174,35 @@ const FreeEventRegistration = () => {
                 <p className="text-sm"><strong>Registration ID:</strong> {bookingId.slice(0, 8).toUpperCase()}</p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 <Button 
                   onClick={() => navigate(`/booking-confirmation/${bookingId}`)}
-                  className="flex-1"
+                  className="w-full"
                 >
-                  View & Download Ticket
+                  Download Ticket
                 </Button>
                 <Button 
-                  variant="outline" 
+                  variant="outline"
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: `Registration for ${event.name}`,
+                        text: `I just registered for ${event.name}!`,
+                        url: window.location.origin + `/event/${event.id}`,
+                      });
+                    } else {
+                      navigator.clipboard.writeText(window.location.origin + `/event/${event.id}`);
+                      toast.success("Event link copied to clipboard!");
+                    }
+                  }}
+                  className="w-full"
+                >
+                  Share Event
+                </Button>
+                <Button 
+                  variant="ghost" 
                   onClick={() => navigate("/")}
-                  className="flex-1"
+                  className="w-full"
                 >
                   Back to Events
                 </Button>
