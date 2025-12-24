@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import UserHome from "./pages/UserHome";
+import About from "./pages/About";
 import EventDetails from "./pages/EventDetails";
 import BookingConfirmation from "./pages/BookingConfirmation";
 import FreeEventRegistration from "./pages/FreeEventRegistration";
@@ -27,6 +28,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<UserHome />} />
+          <Route path="/about" element={<About />} />
           <Route path="/explore" element={<UserHome />} />
           <Route path="/event/:id" element={<EventDetails />} />
           <Route path="/event/:id/register" element={<FreeEventRegistration />} />

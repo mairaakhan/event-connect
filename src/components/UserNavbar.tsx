@@ -8,6 +8,7 @@ export const UserNavbar = () => {
 
   const navItems = [
     { label: "Home", path: "/" },
+    { label: "About", path: "/about" },
   ];
 
   return (
