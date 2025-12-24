@@ -21,6 +21,7 @@ import { Upload, X, Trash2, Plus, Loader2, Calendar, Clock, ArrowLeft } from "lu
 import { TicketCategory } from "@/types/event";
 import { createEvent, updateEvent } from "@/hooks/useEvents";
 import { supabase } from "@/integrations/supabase/client";
+import { PromotionSection } from "@/components/PromotionSection";
 
 const categories = ["music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
 
@@ -53,6 +54,15 @@ const VendorEventForm = () => {
     enableGroupBooking: false,
     groupDiscount: "",
     groupMinTickets: "",
+  });
+
+  // Promotion data
+  const [promotionData, setPromotionData] = useState({
+    enablePromotion: false,
+    promotionType: 'featured' as 'featured' | 'sponsored' | 'premium',
+    budget: '',
+    startDate: '',
+    endDate: '',
   });
 
   // Step 2: Event Duration Type
@@ -400,6 +410,31 @@ const VendorEventForm = () => {
         if (catError) {
           console.error('Error saving ticket categories:', catError);
           toast.error("Event saved but ticket categories failed to save");
+        }
+      }
+
+      // Save promotion if enabled
+      if (promotionData.enablePromotion && savedEvent && vendor) {
+        // Delete existing promotion if editing
+        if (isEdit) {
+          await supabase.from('event_promotions').delete().eq('event_id', id);
+        }
+
+        const { error: promoError } = await supabase
+          .from('event_promotions')
+          .insert({
+            event_id: savedEvent.id,
+            vendor_id: vendor.id,
+            promotion_type: promotionData.promotionType,
+            budget: parseFloat(promotionData.budget) || 0,
+            start_date: new Date(promotionData.startDate).toISOString(),
+            end_date: new Date(promotionData.endDate).toISOString(),
+            is_active: true,
+          });
+
+        if (promoError) {
+          console.error('Error saving promotion:', promoError);
+          toast.error("Event saved but promotion failed to save");
         }
       }
 
@@ -1087,6 +1122,12 @@ const VendorEventForm = () => {
                   )}
                 </div>
               </div>
+
+              {/* STEP 6: Promotion */}
+              <PromotionSection
+                promotionData={promotionData}
+                onChange={setPromotionData}
+              />
 
               {/* Submit Button */}
               <div className="border-t pt-6">

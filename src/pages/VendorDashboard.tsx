@@ -4,8 +4,9 @@ import { VendorNavbar } from "@/components/VendorNavbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, DollarSign, Ticket, Loader2 } from "lucide-react";
-import { Event, Booking } from "@/types/event";
+import { Event, Booking, EventPromotion } from "@/types/event";
 import { SalesAnalyticsChart } from "@/components/SalesAnalyticsChart";
+import { PromotionAnalytics } from "@/components/PromotionAnalytics";
 import { supabase } from "@/integrations/supabase/client";
 
 const VendorDashboard = () => {
@@ -13,6 +14,7 @@ const VendorDashboard = () => {
   const [vendor, setVendor] = useState<any>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [promotions, setPromotions] = useState<(EventPromotion & { eventName: string })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,6 +54,13 @@ const VendorDashboard = () => {
           .eq('status', 'paid');
 
         if (bookingsError) throw bookingsError;
+
+        // Fetch promotions for vendor
+        const { data: promotionsData } = await supabase
+          .from('event_promotions')
+          .select('*')
+          .eq('vendor_id', vendorData.id)
+          .order('created_at', { ascending: false });
 
         // Transform events data
         const transformedEvents: Event[] = (eventsData || []).map(e => ({
@@ -102,8 +111,28 @@ const VendorDashboard = () => {
           platformCommission: b.platform_commission,
         }));
 
+        // Transform promotions data
+        const transformedPromotions = (promotionsData || []).map(p => {
+          const eventName = eventsData?.find(e => e.id === p.event_id)?.name || 'Unknown Event';
+          return {
+            id: p.id,
+            eventId: p.event_id,
+            vendorId: p.vendor_id,
+            promotionType: p.promotion_type as 'featured' | 'sponsored' | 'premium',
+            budget: Number(p.budget),
+            startDate: p.start_date,
+            endDate: p.end_date,
+            isActive: p.is_active,
+            views: p.views,
+            clicks: p.clicks,
+            createdAt: p.created_at,
+            eventName,
+          };
+        });
+
         setEvents(transformedEvents);
         setBookings(transformedBookings);
+        setPromotions(transformedPromotions);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -190,6 +219,9 @@ const VendorDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Promotion Analytics */}
+        <PromotionAnalytics promotions={promotions} />
 
         {/* Sales Analytics Chart */}
         <div className="mb-6 sm:mb-8">
