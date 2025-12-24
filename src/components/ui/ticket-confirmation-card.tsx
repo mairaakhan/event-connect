@@ -202,15 +202,14 @@ const TicketDownloadCard = React.forwardRef<HTMLDivElement, TicketDownloadProps>
             </div>
           )}
 
-          <DashedLine />
-
-          {/* Barcode */}
-          <div className="pt-2">
-            <Barcode value={ticketId.toUpperCase()} />
+          {/* Ticket ID */}
+          <div className="text-center pt-4 border-t border-gray-200">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Ticket ID</p>
+            <p className="font-mono font-semibold text-gray-900 tracking-wider">{ticketId.toUpperCase()}</p>
           </div>
 
           {/* Footer */}
-          <div className="text-center pt-2">
+          <div className="text-center pt-4">
             <p className="text-xs text-gray-500">
               Powered by <span className="font-semibold" style={{ fontFamily: "Outfit, sans-serif" }}>event.pk</span>
             </p>
