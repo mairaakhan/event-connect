@@ -56,11 +56,6 @@ const VendorEventForm = () => {
     groupMinTickets: "",
   });
 
-  // Promotion data
-  const [promotionData, setPromotionData] = useState({
-    enablePromotion: false,
-    promotionType: 'featured' as 'featured' | 'sponsored' | 'premium',
-  });
 
   // Step 2: Event Duration Type
   const [eventDurationType, setEventDurationType] = useState<"single" | "multi">("single");
@@ -410,30 +405,7 @@ const VendorEventForm = () => {
         }
       }
 
-      // Save promotion if enabled
-      if (promotionData.enablePromotion && savedEvent && vendor) {
-        // Delete existing promotion if editing
-        if (isEdit) {
-          await supabase.from('event_promotions').delete().eq('event_id', id);
-        }
-
-        const { error: promoError } = await supabase
-          .from('event_promotions')
-          .insert({
-            event_id: savedEvent.id,
-            vendor_id: vendor.id,
-            promotion_type: promotionData.promotionType,
-            budget: 0,
-            start_date: new Date().toISOString(),
-            end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-            is_active: true,
-          });
-
-        if (promoError) {
-          console.error('Error saving promotion:', promoError);
-          toast.error("Event saved but promotion failed to save");
-        }
-      }
+      // Promotion feature coming soon - disabled for now
 
       toast.success(isEdit ? "Event updated successfully!" : "Event created successfully!");
       navigate("/vendor/events");
@@ -1120,11 +1092,8 @@ const VendorEventForm = () => {
                 </div>
               </div>
 
-              {/* STEP 6: Promotion */}
-              <PromotionSection
-                promotionData={promotionData}
-                onChange={setPromotionData}
-              />
+              {/* STEP 6: Promotion (Coming Soon) */}
+              <PromotionSection />
 
               {/* Submit Button */}
               <div className="border-t pt-6">
