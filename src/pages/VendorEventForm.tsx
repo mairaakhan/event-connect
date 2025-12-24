@@ -60,9 +60,6 @@ const VendorEventForm = () => {
   const [promotionData, setPromotionData] = useState({
     enablePromotion: false,
     promotionType: 'featured' as 'featured' | 'sponsored' | 'premium',
-    budget: '',
-    startDate: '',
-    endDate: '',
   });
 
   // Step 2: Event Duration Type
@@ -426,9 +423,9 @@ const VendorEventForm = () => {
             event_id: savedEvent.id,
             vendor_id: vendor.id,
             promotion_type: promotionData.promotionType,
-            budget: parseFloat(promotionData.budget) || 0,
-            start_date: new Date(promotionData.startDate).toISOString(),
-            end_date: new Date(promotionData.endDate).toISOString(),
+            budget: 0,
+            start_date: new Date().toISOString(),
+            end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
             is_active: true,
           });
 
