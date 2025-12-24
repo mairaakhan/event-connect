@@ -4,12 +4,14 @@ import { Badge } from "./ui/badge";
 import { Calendar, MapPin, Users, Zap, Gift } from "lucide-react";
 import { format, differenceInDays, isPast, isFuture } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { PromotionBadge } from "./PromotionBadge";
 
 interface EventCardProps {
   event: Event;
+  showPromotionBadge?: boolean;
 }
 
-export const EventCard = ({ event }: EventCardProps) => {
+export const EventCard = ({ event, showPromotionBadge = false }: EventCardProps) => {
   const navigate = useNavigate();
   const ticketsLiveDate = new Date(event.ticketsLiveFrom);
   const eventEndDate = new Date(event.endDate || event.startDate);
@@ -24,6 +26,9 @@ export const EventCard = ({ event }: EventCardProps) => {
 
   const isFreeEvent = event.ticketPrice === 0;
   const availability = ((event.totalTickets - event.soldTickets) / event.totalTickets) * 100;
+  
+  // Check for active promotion
+  const hasActivePromotion = showPromotionBadge && event.promotion && event.promotion.isActive;
 
   return (
     <Card
@@ -37,6 +42,9 @@ export const EventCard = ({ event }: EventCardProps) => {
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
         />
         <div className="absolute top-2 sm:top-3 left-2 sm:left-3 flex gap-1 sm:gap-2 flex-wrap">
+          {hasActivePromotion && (
+            <PromotionBadge type={event.promotion!.promotionType} />
+          )}
           {isFreeEvent && (
             <Badge className="bg-emerald-500 text-white border-0 text-xs">
               <Gift className="w-3 h-3 mr-1" />

@@ -7,6 +7,20 @@ export interface TicketCategory {
   description?: string;
 }
 
+export interface EventPromotion {
+  id: string;
+  eventId: string;
+  vendorId: string;
+  promotionType: 'featured' | 'sponsored' | 'premium';
+  budget: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  views: number;
+  clicks: number;
+  createdAt: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -38,6 +52,7 @@ export interface Event {
     minTickets: number;
   };
   status: 'live' | 'scheduled' | 'ended';
+  promotion?: EventPromotion;
 }
 
 export interface Vendor {

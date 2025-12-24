@@ -116,6 +116,66 @@ export type Database = {
           },
         ]
       }
+      event_promotions: {
+        Row: {
+          budget: number
+          clicks: number
+          created_at: string
+          end_date: string
+          event_id: string
+          id: string
+          is_active: boolean
+          promotion_type: Database["public"]["Enums"]["promotion_type"]
+          start_date: string
+          updated_at: string
+          vendor_id: string
+          views: number
+        }
+        Insert: {
+          budget?: number
+          clicks?: number
+          created_at?: string
+          end_date: string
+          event_id: string
+          id?: string
+          is_active?: boolean
+          promotion_type?: Database["public"]["Enums"]["promotion_type"]
+          start_date: string
+          updated_at?: string
+          vendor_id: string
+          views?: number
+        }
+        Update: {
+          budget?: number
+          clicks?: number
+          created_at?: string
+          end_date?: string
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          promotion_type?: Database["public"]["Enums"]["promotion_type"]
+          start_date?: string
+          updated_at?: string
+          vendor_id?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_promotions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_promotions_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_schedules: {
         Row: {
           created_at: string
@@ -371,7 +431,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      promotion_type: "featured" | "sponsored" | "premium"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -498,6 +558,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      promotion_type: ["featured", "sponsored", "premium"],
+    },
   },
 } as const
