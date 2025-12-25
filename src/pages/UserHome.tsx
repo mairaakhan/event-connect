@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { GradientBackground } from "@/components/GradientBackground";
 import { supabase } from "@/integrations/supabase/client";
 import { Event, EventPromotion } from "@/types/event";
+import logo from "@/assets/logo.png";
 
 const categories = ["all", "free", "music", "festival", "standup", "bookfair", "carnival", "food", "technology", "other"];
 const cities = ["all", "Karachi", "Lahore", "Islamabad", "Rawalpindi", "Multan", "Faisalabad"];
@@ -106,9 +107,12 @@ const UserHome = () => {
         {/* Hero Section */}
         <section className="container px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-20">
           <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-12 animate-fade-in">
-            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold mb-3 sm:mb-4 text-white drop-shadow-lg font-oughter">
-              event.pk
-            </h1>
+            <div className="flex items-center justify-center gap-3 mb-3 sm:mb-4">
+              <img src={logo} alt="event.pk" className="h-12 sm:h-16 md:h-20 w-auto" />
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent drop-shadow-lg">
+                event.pk
+              </h1>
+            </div>
             <p className="text-base sm:text-lg md:text-xl text-white/90 font-medium px-4">
               Discover, book, create, and manage events with ease.
             </p>

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Twitter, Mail, Phone, MapPin } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import logo from "@/assets/logo.png";
 
 export const Footer = () => {
   return (
@@ -9,9 +10,12 @@ export const Footer = () => {
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
           {/* Brand Section */}
           <div className="space-y-4 col-span-2 sm:col-span-1">
-            <h3 className="text-xl sm:text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent font-oughter">
-              event.pk
-            </h3>
+            <div className="flex items-center gap-2">
+              <img src={logo} alt="event.pk" className="h-8 w-auto" />
+              <h3 className="text-xl sm:text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                event.pk
+              </h3>
+            </div>
             <p className="text-xs sm:text-sm text-muted-foreground">
               Discover, book, create, and manage events with ease across Pakistan.
             </p>
