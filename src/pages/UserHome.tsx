@@ -91,8 +91,9 @@ const UserHome = () => {
       const matchesStartDate = !startDate || eventStartDate >= startDate;
       const matchesEndDate = !endDate || eventStartDate <= endDate;
       const matchesCategory = category === "all" || 
-        (category === "free" ? event.ticketPrice === 0 : event.category === category);
-      const matchesCity = city === "all" || event.city === city;
+        (category === "free" ? event.ticketPrice === 0 : event.category?.toLowerCase() === category.toLowerCase());
+      // Case-insensitive city comparison to handle mixed case data
+      const matchesCity = city === "all" || event.city?.toLowerCase() === city.toLowerCase();
 
       return matchesStartDate && matchesEndDate && matchesCategory && matchesCity;
     });
