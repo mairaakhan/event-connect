@@ -465,19 +465,21 @@ const BookingConfirmation = () => {
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Payment</DialogTitle>
+            <DialogTitle>Demo Payment</DialogTitle>
             <DialogDescription>
-              Please complete the payment using one of these methods and enter your name to confirm.
+              Enter your name to simulate payment confirmation.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="p-4 border rounded-lg space-y-2">
-              <h4 className="font-semibold">Payment Methods:</h4>
-              <div className="text-sm space-y-1">
-                <p>• Bank Transfer: [Account Details]</p>
-                <p>• Easypaisa: [Number]</p>
-                <p>• JazzCash: [Number]</p>
+            {/* Demo Notice */}
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-600 dark:text-yellow-400 text-lg">⚠️</span>
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <p className="font-semibold mb-1">Demo Mode</p>
+                  <p>This is a test payment feature. No real payment will be processed. Stripe and other payment gateways will be integrated soon.</p>
+                </div>
               </div>
             </div>
 
@@ -503,7 +505,7 @@ const BookingConfirmation = () => {
                 onClick={handleConfirmPayment}
                 className="flex-1"
               >
-                Confirm Payment
+                Confirm (Demo)
               </Button>
             </div>
           </div>
