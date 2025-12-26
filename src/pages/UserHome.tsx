@@ -77,8 +77,13 @@ const UserHome = () => {
   // Filter out past events and apply filters
   const filteredEvents = useMemo(() => {
     const now = new Date();
+    // Set to start of today for comparison
+    now.setHours(0, 0, 0, 0);
+    
     return eventsWithPromotions.filter((event) => {
+      // Use end_date if available, otherwise use start_date
       const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(event.startDate);
+      // Event is past if its end date is before today
       const isPastEvent = eventEndDate < now;
       if (isPastEvent) return false;
       
